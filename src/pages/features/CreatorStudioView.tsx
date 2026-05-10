@@ -4,11 +4,13 @@ import { ArrowLeft, Users, Clock, PlayCircle, Loader2, Award, Upload, BadgeCheck
 import { auth, db } from '@/lib/firebase';
 import { doc, onSnapshot, getDoc } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '@/lib/firebase';
+import { MonetizationApplicationModal } from '@/components/tools/MonetizationApplicationModal';
 
 export const CreatorStudioView = ({ onBack, onNavigate }: { onBack: () => void, onNavigate: (path: string) => void }) => {
   const [userData, setUserData] = useState<any>(null);
   const [followerCount, setFollowerCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
 
   useEffect(() => {
     const user = auth.currentUser;
@@ -50,6 +52,7 @@ export const CreatorStudioView = ({ onBack, onNavigate }: { onBack: () => void, 
   const watchSeconds = userData?.watchTimeSeconds || 0;
   const watchHours = (watchSeconds / 3600).toFixed(1);
   const isMonetized = userData?.isMonetized || false;
+  const isPending = userData?.monetizationStatus === 'pending';
 
   const GOAL_FOLLOWERS = 2000;
   const GOAL_WATCH_HOURS = 5000;
@@ -154,14 +157,18 @@ export const CreatorStudioView = ({ onBack, onNavigate }: { onBack: () => void, 
 
            <div className="mt-8">
              <button 
-               disabled={!canApply || isMonetized}
+               disabled={!canApply || isMonetized || isPending}
+               onClick={() => canApply && !isMonetized && !isPending && setIsApplyModalOpen(true)}
                className={`w-full py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 transition-all ${
                  isMonetized ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20' :
+                 isPending ? 'bg-amber-500/10 text-amber-600 border border-amber-500/20' :
                  canApply ? 'bg-primary text-white hover:bg-primary-dark shadow-lg shadow-primary/20' : 'bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed'
                }`}
              >
                {isMonetized ? (
                  <> <BadgeCheck className="w-5 h-5"/> You are a Partner </>
+               ) : isPending ? (
+                 <> <Clock className="w-5 h-5"/> Application Pending... </>
                ) : canApply ? (
                  <> Apply Now </>
                ) : (
@@ -179,7 +186,13 @@ export const CreatorStudioView = ({ onBack, onNavigate }: { onBack: () => void, 
                 <h4 className="font-bold text-slate-700 dark:text-slate-300 mb-1">No videos uploaded</h4>
                 <p className="text-xs text-slate-500 mb-4">Upload your first video to start gaining followers and watch time.</p>
                 <button 
-                  onClick={() => alert("Upload feature coming soon!")}
+                  onClick={() => {
+                    const navEvent = new CustomEvent("navigate", { detail: "tools" });
+                    window.dispatchEvent(navEvent);
+                    setTimeout(() => {
+                      window.dispatchEvent(new CustomEvent("open-upload-sheet"));
+                    }, 100);
+                  }}
                   className="px-5 py-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-full font-bold text-sm hover:scale-105 transition-transform"
                 >
                   Upload Video
@@ -201,6 +214,7 @@ export const CreatorStudioView = ({ onBack, onNavigate }: { onBack: () => void, 
         </div>
 
       </div>
+      <MonetizationApplicationModal isOpen={isApplyModalOpen} onClose={() => setIsApplyModalOpen(false)} />
     </div>
   );
 };

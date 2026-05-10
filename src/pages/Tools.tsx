@@ -2399,6 +2399,15 @@ export const ToolsView = ({
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [isUploadSheetOpen, setIsUploadSheetOpen] = useState(false);
 
+  useEffect(() => {
+    const handleOpenUploadSheet = () => {
+      window.history.pushState({ view: "upload-sheet" }, "");
+      setIsUploadSheetOpen(true);
+    };
+    window.addEventListener("open-upload-sheet", handleOpenUploadSheet);
+    return () => window.removeEventListener("open-upload-sheet", handleOpenUploadSheet);
+  }, []);
+
   // Sidebar dynamic data
   const [sidebarStats, setSidebarStats] = useState({ followers: 0, posts: 0 });
   const [sidebarUser, setSidebarUser] = useState<any>(null);

@@ -392,9 +392,26 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["name", "description", "phoneNumber", "imageUrl", "createdAt"]
+    },
+    "MonetizationRequest": {
+      "title": "MonetizationRequest",
+      "description": "A request for monetization",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "followers": { "type": "number" },
+        "watchTimeSeconds": { "type": "number" },
+        "appliedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "status", "appliedAt"]
     }
   },
   "firestore": {
+    "/monetizationRequests/{userId}": {
+      "schema": "MonetizationRequest",
+      "description": "Collection of monetization requests"
+    },
     "/referrals/{referralId}": {
       "schema": "Referral",
       "description": "Collection of referral relationships"

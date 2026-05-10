@@ -18,6 +18,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { db, auth, handleFirestoreError, OperationType } from '@/lib/firebase';
 import { doc, onSnapshot, getCountFromServer, collection, query, where, orderBy, limit } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
+import { MonetizationApplicationModal } from './MonetizationApplicationModal';
 
 export function MonetizationModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
     const { language } = useLanguage();
@@ -25,6 +26,7 @@ export function MonetizationModal({ isOpen, onClose }: { isOpen: boolean; onClos
     const [userProfile, setUserProfile] = useState<any>(null);
     const [followerCount, setFollowerCount] = useState(0);
     const [loading, setLoading] = useState(true);
+    const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
     const [showGiftDetails, setShowGiftDetails] = useState(false);
     const [showInstreamDetails, setShowInstreamDetails] = useState(false);
     const [showEarningsDetail, setShowEarningsDetail] = useState(false);
@@ -89,6 +91,9 @@ export function MonetizationModal({ isOpen, onClose }: { isOpen: boolean; onClos
     const meetsAdsFollowerGoal = followerCount >= 2000;
     const meetsWatchTimeGoal = watchHours >= GOAL_WATCH_HOURS;
     const isEligibleForInstream = meetsAdsFollowerGoal && meetsWatchTimeGoal && isProfileHealthy;
+
+    const isPending = userProfile?.monetizationStatus === 'pending';
+    const isMonetized = userProfile?.isMonetized === true;
 
     const t = {
         title: language === 'bn' ? 'মনিটাইজেশন' : 'Monetize',
@@ -552,21 +557,29 @@ export function MonetizationModal({ isOpen, onClose }: { isOpen: boolean; onClos
                             {/* Sticky footer with apply button */}
                             <div className="p-4 border-t border-slate-100 dark:border-slate-800">
                                 <button 
-                                    disabled={!isEligibleForInstream}
+                                    disabled={!isEligibleForInstream || isMonetized || isPending}
+                                    onClick={() => isEligibleForInstream && !isMonetized && !isPending && setIsApplyModalOpen(true)}
                                     className={cn(
-                                        "w-full py-4 rounded-2xl font-bold text-[16px] transition-all active:scale-[0.98]",
+                                        "w-full py-4 rounded-2xl font-bold text-[16px] transition-all active:scale-[0.98] flex items-center justify-center gap-2",
+                                        isMonetized ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20' :
+                                        isPending ? 'bg-amber-500/10 text-amber-600 border border-amber-500/20' :
                                         isEligibleForInstream 
                                             ? "bg-primary text-white shadow-lg shadow-primary/20" 
                                             : "bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-600 cursor-not-allowed"
                                     )}
                                 >
-                                    {t.applyNow}
+                                    {isMonetized ? (
+                                        <> <CheckCircle2 className="w-5 h-5"/> {language === 'bn' ? 'আপনি একজন পার্টনার' : 'You are a Partner'} </>
+                                    ) : isPending ? (
+                                        <> <Clock className="w-5 h-5"/> {language === 'bn' ? 'আবেদন পেন্ডিং...' : 'Application Pending...'} </>
+                                    ) : t.applyNow}
                                 </button>
                             </div>
                         </motion.div>
                     )}
                 </AnimatePresence>
             </motion.div>
+            <MonetizationApplicationModal isOpen={isApplyModalOpen} onClose={() => setIsApplyModalOpen(false)} />
         </AnimatePresence>
     );
 }
