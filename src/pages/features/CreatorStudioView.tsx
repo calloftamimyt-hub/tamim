@@ -7,14 +7,25 @@ import { handleFirestoreError, OperationType } from '@/lib/firebase';
 
 export const CreatorStudioView = ({ onBack, onNavigate }: { onBack: () => void, onNavigate: (path: string) => void }) => {
   const [userData, setUserData] = useState<any>(null);
+  const [followerCount, setFollowerCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const user = auth.currentUser;
     if (!user) return;
     const path = `users/${user.uid}`;
+    
+    // Fetch followers
+    import('firebase/firestore').then(({ getCountFromServer, collection, query, where }) => {
+      const followersQuery = query(collection(db, 'follows'), where('following_id', '==', user.uid));
+      getCountFromServer(followersQuery).then(snapshot => {
+        setFollowerCount(snapshot.data().count);
+      }).catch(console.error);
+    });
+
     const unsub = onSnapshot(doc(db, 'users', user.uid), 
       (snap) => {
+
         if (snap.exists()) {
           setUserData(snap.data());
         }
@@ -36,7 +47,6 @@ export const CreatorStudioView = ({ onBack, onNavigate }: { onBack: () => void, 
     );
   }
 
-  const followersCount = userData?.followersCount || 0;
   const watchSeconds = userData?.watchTimeSeconds || 0;
   const watchHours = (watchSeconds / 3600).toFixed(1);
   const isMonetized = userData?.isMonetized || false;
@@ -44,10 +54,10 @@ export const CreatorStudioView = ({ onBack, onNavigate }: { onBack: () => void, 
   const GOAL_FOLLOWERS = 2000;
   const GOAL_WATCH_HOURS = 5000;
 
-  const followerProgress = Math.min((followersCount / GOAL_FOLLOWERS) * 100, 100);
+  const followerProgress = Math.min((followerCount / GOAL_FOLLOWERS) * 100, 100);
   const watchTimeProgress = Math.min((Number(watchHours) / GOAL_WATCH_HOURS) * 100, 100);
 
-  const canApply = followersCount >= GOAL_FOLLOWERS && Number(watchHours) >= GOAL_WATCH_HOURS;
+  const canApply = followerCount >= GOAL_FOLLOWERS && Number(watchHours) >= GOAL_WATCH_HOURS;
 
   return (
     <div className="bg-slate-50 dark:bg-slate-950 min-h-[100dvh] flex flex-col font-sans">
@@ -85,7 +95,7 @@ export const CreatorStudioView = ({ onBack, onNavigate }: { onBack: () => void, 
                {isMonetized && <BadgeCheck className="w-5 h-5 text-blue-500 shrink-0" />}
              </h2>
              <p className="text-sm text-slate-500 mt-1 flex items-center gap-2 flex-wrap">
-                <Users className="w-4 h-4 text-slate-400"/> <span className="font-bold text-slate-700 dark:text-slate-300">{followersCount}</span> Followers
+                <Users className="w-4 h-4 text-slate-400"/> <span className="font-bold text-slate-700 dark:text-slate-300">{followerCount}</span> Followers
                 <span className="mx-1 text-slate-300 dark:text-slate-600">|</span>
                 <Clock className="w-4 h-4 text-slate-400"/> <span className="font-bold text-slate-700 dark:text-slate-300">{watchHours}</span> Watch Hours
              </p>
@@ -108,7 +118,7 @@ export const CreatorStudioView = ({ onBack, onNavigate }: { onBack: () => void, 
               <div>
                  <div className="flex items-center justify-between mb-2">
                     <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Followers</span>
-                    <span className="text-sm font-medium text-slate-500">{followersCount} / {GOAL_FOLLOWERS}</span>
+                    <span className="text-sm font-medium text-slate-500">{followerCount} / {GOAL_FOLLOWERS}</span>
                  </div>
                  <div className="h-3 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                     <motion.div 
@@ -117,7 +127,7 @@ export const CreatorStudioView = ({ onBack, onNavigate }: { onBack: () => void, 
                        className="h-full bg-blue-500 rounded-full"
                     />
                  </div>
-                 {followersCount >= GOAL_FOLLOWERS && (
+                 {followerCount >= GOAL_FOLLOWERS && (
                    <p className="text-xs text-emerald-500 mt-2 flex items-center gap-1"><BadgeCheck className="w-3 h-3"/> Follower goal reached</p>
                  )}
               </div>

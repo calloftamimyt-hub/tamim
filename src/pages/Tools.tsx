@@ -1147,8 +1147,8 @@ export const PostCard = ({
         const secondsToSave = Math.floor(sessionWatchTime.current);
         sessionWatchTime.current -= secondsToSave;
 
-        // Make watch time accumulate much slower (Youtube-style watch time scaling, 50x slower)
-        const scaledSecondsToSave = Number((secondsToSave * 0.02).toFixed(3));
+        // Make watch time accumulate much slower (200x slower)
+        const scaledSecondsToSave = Number((secondsToSave * 0.005).toFixed(3));
 
         import("firebase/firestore").then(({ doc, increment, setDoc }) => {
           if (post.authorUid !== auth.currentUser?.uid) {
