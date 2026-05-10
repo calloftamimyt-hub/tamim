@@ -1,0 +1,648 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: userId (uid)
+    // Fields:
+    //   - displayName: string (optional)
+    //   - username: string (optional)
+    //   - phoneNumber: string (optional)
+    //   - location: string (optional)
+    //   - role: string (enum: 'admin', 'client')
+    //   - updatedAt: timestamp
+    //
+    // Collection: posts
+    // Document ID: postId
+    // Fields:
+    //   - authorUid: string (required)
+    //   - authorName: string (required)
+    //   - authorAvatarUrl: string (optional)
+    //   - authorUsername: string (optional)
+    //   - content: string (required)
+    //   - type: string (optional)
+    //   - location: string (optional)
+    //   - ameenCount: number (optional)
+    //   - reactionsCount: number (optional)
+    //   - reportsCount: number (optional)
+    //   - createdAt: timestamp (required)
+    //
+    // Collection: stories
+    // Document ID: storyId
+    // Fields:
+    //   - authorUid: string (required)
+    //   - authorName: string (required)
+    //   - authorAvatarUrl: string (optional)
+    //   - text: string (required)
+    //   - backgroundColor: string (required)
+    //   - textStyle: map (required)
+    //   - createdAt: timestamp (required)
+    //
+    // Collection: ads
+    // Document ID: adId
+    // Fields:
+    //   - imageUrl: string (required)
+    //   - redirectLink: string (required)
+    //   - category: string (enum: 'home', 'social', 'all')
+    //   - type: string (enum: 'small', 'large')
+    //   - active: bool (required)
+    //
+    // Collection: settings/earning
+    // Fields:
+    //   - gmailPrice: number
+    //   - gmailLimit: number
+    //   - gmailRequiredPassword: string
+    //   - minWithdrawal: number (optional)
+    //
+    // Collection: gmail_submissions
+    // Fields:
+    //   - userId: string
+    //   - userEmail: string
+    //   - gmailEmail: string
+    //   - gmailPassword: string
+    //   - price: number
+    //   - status: string (enum: 'pending', 'approved', 'rejected')
+    //   - createdAt: timestamp
+    //
+    // Collection: user_balances
+    // Fields:
+    //   - userId: string
+    //   - totalEarned: number
+    //   - currentBalance: number
+    //   - updatedAt: timestamp
+    //
+    // Collection: account_verifications
+    // Fields:
+    //   - userId: string
+    //   - adsWatched: number
+    //   - isVerified: bool
+    //   - updatedAt: timestamp
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isValidInventoryItem(data) {
+      return data.keys().hasAll(['giftId', 'quantity', 'updatedAt', 'userId']) &&
+             data.giftId is string && data.giftId.size() <= 128 &&
+             data.quantity is int && data.quantity >= 0 &&
+             data.userId is string && data.userId.size() <= 128;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Explicitly verify the authenticated user is an admin via a database document check
+    function isAdmin() {
+      return isAuthenticated() &&
+        (
+          (request.auth.token.email.matches(".*calloftamim.*@gmail.com")) ||
+          exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+        );
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function isValidUrl(url) {
+      return url is string && (url.matches("^https://.*") || url.matches("^http://.*"));
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidEarningSettings(data) {
+      return hasRequiredFields(['gmailPrice', 'gmailLimit', 'gmailRequiredPassword']) &&
+             data.gmailPrice is number &&
+             data.gmailLimit is number &&
+             data.gmailRequiredPassword is string &&
+             (!('facebookPrice' in data) || data.facebookPrice is number) &&
+             (!('facebookLimit' in data) || data.facebookLimit is number) &&
+             (!('facebookRequiredPassword' in data) || data.facebookRequiredPassword is string) &&
+             (!('instagramPrice' in data) || data.instagramPrice is number) &&
+             (!('instagramLimit' in data) || data.instagramLimit is number) &&
+             (!('instagramRequiredPassword' in data) || data.instagramRequiredPassword is string) &&
+             (!('quizReward' in data) || data.quizReward is number) &&
+             (!('quizQuestionsPerSession' in data) || data.quizQuestionsPerSession is number) &&
+             (!('quizBreakTimeMinutes' in data) || data.quizBreakTimeMinutes is number) &&
+             (!('typingJobBonus' in data) || data.typingJobBonus is number) &&
+             (!('adViewReward' in data) || data.adViewReward is number) &&
+             (!('minWithdrawal' in data) || data.minWithdrawal is number);
+    }
+
+    function isValidDeposit(data) {
+      return hasRequiredFields(['userId', 'method', 'amount', 'senderNumber', 'transactionId', 'status', 'createdAt']) &&
+             data.userId == request.auth.uid &&
+             data.method in ['bkash', 'nagad'] &&
+             data.amount is number && data.amount > 0 &&
+             data.senderNumber is string && data.senderNumber.size() == 11 &&
+             data.transactionId is string && data.transactionId.size() >= 6 &&
+             data.status in ['pending', 'approved', 'rejected'] &&
+             data.createdAt is timestamp;
+    }
+
+    function isValidWithdrawal(data) {
+      return hasRequiredFields(['userId', 'method', 'amount', 'phoneNumber', 'accountName', 'status', 'createdAt']) &&
+             data.userId == request.auth.uid &&
+             data.method in ['bkash', 'nagad'] &&
+             data.amount is number && data.amount > 0 &&
+             data.phoneNumber is string && data.phoneNumber.size() >= 11 &&
+             data.accountName is string && data.accountName.size() > 0 &&
+             data.status in ['pending', 'approved', 'rejected'] &&
+             data.createdAt is timestamp;
+    }
+
+    function isValidUserBalance(data) {
+      // Only check userId and updatedAt as required for all types of updates, others are validated if present
+      return data.userId is string && data.updatedAt is timestamp &&
+             (!('totalEarned' in data) || data.totalEarned is number) &&
+             (!('currentBalance' in data) || data.currentBalance is number) &&
+             (!('points' in data) || data.points is number) &&
+             (!('balance' in data) || data.balance is number) &&
+             (!('depositBalance' in data) || data.depositBalance is number);
+    }
+
+    function isValidAccountVerification(data) {
+      return hasRequiredFields(['userId', 'adsWatched', 'isVerified', 'updatedAt']) &&
+             data.userId == request.auth.uid &&
+             data.adsWatched is number && data.adsWatched >= 0 &&
+             data.isVerified is bool &&
+             data.updatedAt is timestamp;
+    }
+
+    function isValidUser(data) {
+      return hasOnlyAllowedFields(['displayName', 'username', 'phoneNumber', 'location', 'role', 'updatedAt', 'photoURL', 'displayNameLower', 'email', 'deviceId', 'lastQuizTime', 'lastQuizTimes', 'lastTypingTime', 'giftWatchedCount', 'isGiftClaimable', 'referralCode', 'referredBy', 'referralCount']) &&
+             (!('displayName' in data) || data.displayName == null || (data.displayName is string && data.displayName.size() < 100)) &&
+             (!('username' in data) || data.username == null || (data.username is string && data.username.size() < 50)) &&
+             (!('role' in data) || data.role == null || data.role in ['admin', 'client']) &&
+             (!('deviceId' in data) || data.deviceId is string) &&
+             (!('lastQuizTime' in data) || data.lastQuizTime is number) &&
+             (!('lastQuizTimes' in data) || data.lastQuizTimes is map) &&
+             (!('lastTypingTime' in data) || data.lastTypingTime is number) &&
+             (!('referralCode' in data) || data.referralCode is string) &&
+             (!('referredBy' in data) || data.referredBy is string) &&
+             (!('referralCount' in data) || data.referralCount is number);
+    }
+
+    function isValidEarningHistory(data) {
+      return hasRequiredFields(['userId', 'type', 'amount', 'status', 'createdAt']) &&
+             data.userId == request.auth.uid &&
+             data.type is string && data.type.size() < 50 &&
+             data.amount is number &&
+             data.status in ['pending', 'approved', 'rejected'] &&
+             data.createdAt is timestamp;
+    }
+
+    function isValidPost(data) {
+      return hasRequiredFields(['authorUid', 'authorName', 'content', 'createdAt']) &&
+             data.authorUid == request.auth.uid &&
+             data.authorName is string && data.authorName.size() < 100 &&
+             data.content is string && data.content.size() < 10000 &&
+             data.createdAt is timestamp &&
+             (!('status' in data) || data.status is string);
+    }
+
+    function isValidStory(data) {
+      return hasRequiredFields(['authorUid', 'authorName', 'text', 'backgroundColor', 'textStyle', 'createdAt']) &&
+             data.authorUid == request.auth.uid &&
+             data.text is string && data.text.size() < 500 &&
+             data.createdAt is timestamp;
+    }
+
+    function isValidAd(data) {
+      return hasRequiredFields(['imageUrl', 'redirectLink', 'category', 'type', 'active']) &&
+             isValidUrl(data.imageUrl) &&
+             isValidUrl(data.redirectLink) &&
+             data.category in ['home', 'social', 'all', 'earning'] &&
+             data.type in ['small', 'large'] &&
+             data.active is bool;
+    }
+
+    function isValidScholar(data) {
+      return hasRequiredFields(['name', 'description', 'phoneNumber', 'imageUrl', 'createdAt']) &&
+             data.name is string && data.name.size() < 100 &&
+             data.description is string && data.description.size() < 1000 &&
+             data.phoneNumber is string && data.phoneNumber.size() >= 10 &&
+             data.imageUrl is string && data.imageUrl.size() > 0 &&
+             data.createdAt is timestamp;
+    }
+
+    function isValidMicroJob(data) {
+      return hasRequiredFields(['title', 'reward', 'totalWorkers', 'completedWorkers', 'description', 'requirements', 'link', 'timeEstimate', 'authorUid', 'status', 'createdAt']) &&
+             data.authorUid == request.auth.uid &&
+             data.title is string && data.title.size() < 200 &&
+             data.reward is number &&
+             data.totalWorkers is number &&
+             data.completedWorkers is number &&
+             data.description is string && data.description.size() < 2000 &&
+             data.requirements is list &&
+             data.link is string &&
+             data.timeEstimate is string &&
+             data.status in ['active', 'paused', 'completed'] &&
+             data.createdAt is timestamp;
+    }
+
+    function isValidDriveOffer(data) {
+      return hasRequiredFields(['operator', 'title', 'regularPrice', 'offerPrice', 'commission', 'validity', 'isActive']) &&
+             data.operator is string &&
+             data.title is string && data.title.size() < 200 &&
+             data.regularPrice is number &&
+             data.offerPrice is number &&
+             data.commission is number &&
+             data.validity is string &&
+             data.isActive is bool;
+    }
+
+    function isValidDriveSubmission(data) {
+      return hasRequiredFields(['userId', 'offerId', 'offerTitle', 'operator', 'phoneNumber', 'price', 'commission', 'status', 'createdAt']) &&
+             data.userId == request.auth.uid &&
+             data.offerId is string &&
+             data.offerTitle is string &&
+             data.operator is string &&
+             data.phoneNumber is string && data.phoneNumber.size() <= 20 &&
+             data.price is number &&
+             data.commission is number &&
+             data.status in ['pending', 'approved', 'rejected'] &&
+             data.createdAt is timestamp;
+    }
+
+    function isWebhookRequest() {
+      return request.resource.data.get('webhookToken', '') == '7bba23b9f8Xv';
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    function isValidPostUpdate() {
+      let affected = request.resource.data.diff(resource.data).affectedKeys();
+      // If author is updating, allow update if it doesn't change immutable fields
+      return (resource.data.authorUid == request.auth.uid && 
+              // Don't use isValidPost here because it requires all fields to be in the update payload
+              // Instead, check that updated fields are valid types
+              (!('content' in affected) || (request.resource.data.content is string && request.resource.data.content.size() < 10000)) &&
+              (!('authorName' in affected) || (request.resource.data.authorName is string && request.resource.data.authorName.size() < 100)) &&
+              // Immutable fields
+              !('authorUid' in affected) &&
+              !('createdAt' in affected)) ||
+             // If non-author is updating, only allow incrementing counts
+             (affected.hasOnly(['reactionsCount', 'ameenCount', 'reportsCount', 'reports', 'viewsCount']) &&
+              (!('reactionsCount' in affected) || request.resource.data.reactionsCount == resource.data.reactionsCount + 1 || request.resource.data.reactionsCount == resource.data.reactionsCount - 1) &&
+              (!('ameenCount' in affected) || request.resource.data.ameenCount == resource.data.ameenCount + 1 || request.resource.data.ameenCount == resource.data.ameenCount - 1) &&
+              (!('reportsCount' in affected) || request.resource.data.reportsCount == resource.data.get('reportsCount', 0) + 1) &&
+              (!('viewsCount' in affected) || request.resource.data.viewsCount == resource.data.get('viewsCount', 0) + 1));
+    }
+
+    function isValidCommentUpdate() {
+      let affected = request.resource.data.diff(resource.data).affectedKeys();
+      return (resource.data.userUid == request.auth.uid && !('userUid' in affected)) ||
+             (affected.hasOnly(['reactionsCount']) &&
+              (request.resource.data.reactionsCount == resource.data.reactionsCount + 1 || request.resource.data.reactionsCount == resource.data.reactionsCount - 1));
+    }
+
+    function isValidMicroJobUpdate() {
+      return (resource.data.authorUid == request.auth.uid && isValidMicroJob(request.resource.data)) ||
+             (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['completedWorkers']) &&
+              request.resource.data.completedWorkers == resource.data.completedWorkers + 1);
+    }
+
+    function isValidReferral(data) {
+      return hasRequiredFields(['referrerId', 'refereeId', 'status', 'createdAt']) &&
+             data.referrerId is string &&
+             data.refereeId is string &&
+             data.status in ['pending', 'completed'] &&
+             data.createdAt is timestamp;
+    }
+
+    match /referrals/{referralId} {
+      allow read: if isAuthenticated() && (resource.data.referrerId == request.auth.uid || resource.data.refereeId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && isValidReferral(request.resource.data);
+      allow update, delete: if isAdmin();
+    }
+
+    match /ads/{adsId} {
+      allow get, list: if true;
+      allow write: if isAdmin();
+    }
+
+    match /scholars/{scholarId} {
+      allow get, list: if true;
+      allow create, update: if isAdmin() && isValidScholar(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /global_notifications/{notificationId} {
+      allow get, list: if true;
+      allow write: if isAdmin();
+    }
+
+    match /notifications/{notificationId} {
+      allow get, list: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow write: if isAdmin();
+    }
+
+    match /fcm_tokens/{tokenId} {
+      allow read: if isAdmin();
+      allow write: if isAuthenticated();
+    }
+    
+    match /quiz_questions/{questionId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    match /typing_jobs/{jobId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    match /ad_jobs/{jobId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    match /settings/youtube_config {
+      allow get: if true;
+      allow write: if isAdmin();
+    }
+
+    match /settings/social {
+      allow get, list: if true;
+      allow write: if isAdmin();
+    }
+
+    match /settings/earning {
+      allow get: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    match /settings/app_config {
+      allow get: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    match /khatme_quran/{videoId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    function isValidDepositRequest(data) {
+      return hasRequiredFields(['userId', 'userEmail', 'amount', 'senderNumber', 'trxId', 'status', 'createdAt']) &&
+             data.userId == request.auth.uid &&
+             data.userEmail is string &&
+             data.amount is number && data.amount > 0 &&
+             data.senderNumber is string &&
+             data.trxId is string &&
+             data.status in ['pending', 'approved', 'rejected'] &&
+             data.createdAt is timestamp;
+    }
+
+    match /deposit_requests/{requestId} {
+      allow get: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow list: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow list: if isAdmin();
+      allow create: if isAuthenticated() && isValidDepositRequest(request.resource.data);
+      allow update, delete: if isAdmin();
+    }
+
+    match /withdrawals/{withdrawalId} {
+      allow get: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow list: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow list: if isAdmin();
+      allow create: if isAuthenticated() && isValidWithdrawal(request.resource.data);
+      allow update, delete: if isAdmin();
+    }
+
+    function isValidInventoryItem(data) {
+      return hasRequiredFields(['id', 'quantity', 'updatedAt']) &&
+             data.id is string &&
+             data.quantity is number &&
+             data.updatedAt is timestamp;
+    }
+
+    function isGift(data) {
+      return hasRequiredFields(['id', 'name_en', 'name_bn', 'icon', 'price', 'active']) &&
+             data.price is number && data.price >= 0;
+    }
+
+    match /gifts/{giftId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /user_balances/{userId} {
+      allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+      allow create: if isOwner(userId);
+      allow update: if isAuthenticated() && (
+        isOwner(userId) || 
+        isAdmin() ||
+        // Gifting action: allowing others to increment earned values
+        (
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['totalEarned', 'giftsEarned', 'updatedAt']) &&
+          request.resource.data.totalEarned > resource.data.totalEarned &&
+          request.resource.data.giftsEarned > resource.data.get('giftsEarned', 0) &&
+          request.resource.data.userId == resource.data.userId
+        )
+      );
+    }
+
+    match /global_settings/{settingId} {
+      allow get: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    match /account_verifications/{userId} {
+      allow get: if true;
+      allow list: if isAdmin();
+      allow create: if isAuthenticated() && request.auth.uid == userId && isValidAccountVerification(request.resource.data);
+      allow update: if isAuthenticated() && request.auth.uid == userId && isValidAccountVerification(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /test/connection {
+      allow get, list: if true;
+    }
+
+    match /earning_history/{historyId} {
+      allow read, list: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if (isAuthenticated() && request.resource.data.userId == request.auth.uid && isValidEarningHistory(request.resource.data)) || isAdmin();
+      allow update, delete: if isAdmin();
+    }
+
+    match /users/{userId} {
+      allow get: if true;
+      allow list: if isAuthenticated();
+      allow create: if isOwner(userId) && isValidUser(request.resource.data) && (request.resource.data.get('role', 'client') == 'client' || isAdmin());
+      allow update: if (isOwner(userId) && isValidUser(request.resource.data) && (request.resource.data.get('role', 'client') == resource.data.get('role', 'client') || isAdmin())) || isAdmin();
+      allow delete: if isAdmin();
+
+      match /daily_stats/{dateStr} {
+        allow get, list, write: if isOwner(userId) || isAdmin();
+      }
+
+      match /earning_history/{historyId} {
+        allow read, list: if isOwner(userId) || isAdmin();
+        allow create: if isAuthenticated() && (
+          isOwner(userId) || 
+          isAdmin() ||
+          // Allow verified gift transaction history record
+          (
+            request.resource.data.type.matches("Received Gift:.*") &&
+            request.resource.data.userId == userId
+          )
+        );
+        allow update, delete: if isAdmin();
+      }
+
+      match /inventory/{itemId} {
+        allow get, list: if isOwner(userId) || isAdmin();
+        allow create: if isOwner(userId) && isValidInventoryItem(request.resource.data);
+        allow update: if isOwner(userId) && isValidInventoryItem(request.resource.data);
+        allow delete: if isAdmin();
+      }
+
+      match /savedVideos/{videoId} {
+        allow get, list, write: if isOwner(userId) || isAdmin();
+      }
+    }
+
+    match /posts/{postId} {
+      allow get, list: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidPost(request.resource.data);
+      allow update: if (isAuthenticated() && isValidPostUpdate()) || isAdmin() || isWebhookRequest();
+      allow delete: if (isAuthenticated() && resource.data.authorUid == request.auth.uid) || isAdmin();
+
+      match /likes/{likeId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated() && request.resource.data.uid == request.auth.uid;
+        allow delete: if isAuthenticated() && resource.data.uid == request.auth.uid;
+      }
+    }
+
+    match /stories/{storyId} {
+      allow get, list: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidStory(request.resource.data);
+      allow delete: if (isAuthenticated() && resource.data.authorUid == request.auth.uid) || isAdmin();
+    }
+
+    match /comments/{commentId} {
+      allow get, list: if isAuthenticated();
+      allow create: if isAuthenticated() && request.resource.data.userUid == request.auth.uid;
+      allow update: if (isAuthenticated() && isValidCommentUpdate()) || isAdmin();
+      allow delete: if (isAuthenticated() && (resource.data.userUid == request.auth.uid || get(/databases/$(database)/documents/posts/$(resource.data.postId)).data.authorUid == request.auth.uid)) || isAdmin();
+    }
+
+    match /comment_reactions/{reactionId} {
+      allow get, list: if isAuthenticated();
+      allow create: if isAuthenticated() && request.resource.data.userUid == request.auth.uid;
+      allow update: if isAuthenticated() && resource.data.userUid == request.auth.uid;
+      allow delete: if isAuthenticated() && (resource.data.userUid == request.auth.uid || isAdmin());
+    }
+
+    match /reactions/{reactionId} {
+      allow get, list: if isAuthenticated();
+      allow create: if isAuthenticated() && request.resource.data.userUid == request.auth.uid;
+      allow delete: if (isAuthenticated() && (resource.data.userUid == request.auth.uid || get(/databases/$(database)/documents/posts/$(resource.data.postId)).data.authorUid == request.auth.uid)) || isAdmin();
+    }
+
+    match /follows/{followId} {
+      allow get, list: if isAuthenticated();
+      allow create: if isAuthenticated() && request.resource.data.follower_id == request.auth.uid;
+      allow delete: if (isAuthenticated() && resource.data.follower_id == request.auth.uid) || isAdmin();
+    }
+
+    match /reports/{reportId} {
+      allow get, list: if isAdmin();
+      allow create: if isAuthenticated();
+    }
+
+    match /bug_reports/{reportId} {
+      allow get, list: if isAdmin();
+      allow create: if isAuthenticated() && request.resource.data.userUid == request.auth.uid;
+    }
+
+    match /drive_offers/{offerId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    match /drive_submissions/{submissionId} {
+      allow get: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow list: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow list: if isAdmin();
+      allow create: if isAuthenticated() && isValidDriveSubmission(request.resource.data);
+      allow update, delete: if isAdmin();
+    }
+
+    match /micro_jobs/{jobId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidMicroJob(request.resource.data);
+      allow update: if isAuthenticated() && (isValidMicroJobUpdate() || isAdmin());
+      allow delete: if isAuthenticated() && (resource.data.authorUid == request.auth.uid || isAdmin());
+    }
+
+    match /micro_job_submissions/{submissionId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && request.resource.data.workerUid == request.auth.uid;
+      allow update: if isAuthenticated() && (resource.data.authorUid == request.auth.uid || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    match /user_data/{userId} {
+      allow get, list, write: if isOwner(userId) || isAdmin();
+    }
+
+    match /spin_sessions/{userId} {
+      allow get, list, write: if isOwner(userId) || isAdmin();
+    }
+
+    match /top_courses/{courseId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /video_likes/{likeId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+
+    match /social_videos/{videoId} {
+      allow read: if true;
+      allow create: if isAuthenticated() && request.resource.data.authorUid == request.auth.uid;
+      allow update: if 
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['views'])) ||
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['shares'])) ||
+        (isAuthenticated() && (
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes', 'views', 'shares', 'comments', 'reportsCount']) ||
+          resource.data.authorUid == request.auth.uid || 
+          isAdmin()
+        ));
+      allow delete: if isAdmin() || (isAuthenticated() && resource.data.authorUid == request.auth.uid);
+    }
+
+    match /otps/{otpId} {
+      allow read, write: if false;
+    }
+  }
+}
