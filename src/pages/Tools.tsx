@@ -148,7 +148,6 @@ import { RegexTestTool } from "@/components/tools/RegexTestTool";
 import { MDEditorTool } from "@/components/tools/MDEditorTool";
 import { RandomNumTool } from "@/components/tools/RandomNumTool";
 import { TextCaseTool } from "@/components/tools/TextCaseTool";
-import { ProfileStatusModal } from "@/components/ProfileStatusModal";
 import { VideoAnalyticsOverlay } from "@/components/tools/VideoAnalyticsOverlay";
 import { DepositView } from "@/pages/features/DepositView";
 import { UUIDMakerTool } from "@/components/tools/UUIDMakerTool";
@@ -2332,8 +2331,6 @@ export const ToolsView = ({
   const [selectedShortPost, setSelectedShortPost] = useState<any>(null);
   const [isShortsFeedOpen, setIsShortsFeedOpen] = useState(false);
   const shortsContainerRef = useRef<HTMLDivElement>(null);
-  const [isProfileStatusModalOpen, setIsProfileStatusModalOpen] =
-    useState(false);
   const [isHelpSupportOpen, setIsHelpSupportOpen] = useState(false);
   
   // Analytics States
@@ -2451,12 +2448,12 @@ export const ToolsView = ({
 
   useEffect(() => {
     // Toggle global navigation visibility when modals are open
-    const isAnyModalOpen = isUploadSheetOpen || !!selectedPostForAnalytics || isProfileStatusModalOpen;
+    const isAnyModalOpen = isUploadSheetOpen || !!selectedPostForAnalytics;
     const event = new CustomEvent("set-nav-visibility", {
       detail: !isAnyModalOpen,
     });
     window.dispatchEvent(event);
-  }, [isUploadSheetOpen, selectedPostForAnalytics, isProfileStatusModalOpen]);
+  }, [isUploadSheetOpen, selectedPostForAnalytics]);
 
   const categories = [
     { id: "all", label: { bn: "সব", en: "All" } },
@@ -2699,8 +2696,6 @@ export const ToolsView = ({
         setIsUploadSheetOpen(false);
       } else if (isHelpSupportOpen) {
         setIsHelpSupportOpen(false);
-      } else if (isProfileStatusModalOpen) {
-        setIsProfileStatusModalOpen(false);
       } else if (isSidebarOpen) {
         setIsSidebarOpen(false);
       } else if (isShortsFeedOpen) {
@@ -2715,7 +2710,6 @@ export const ToolsView = ({
     isPostingOpen,
     isSidebarOpen,
     isUploadSheetOpen,
-    isProfileStatusModalOpen,
     isHelpSupportOpen
   ]);
 
@@ -3321,7 +3315,6 @@ export const ToolsView = ({
                         isUploadSheetOpen ||
                         isPostingOpen ||
                         isSidebarOpen ||
-                        isProfileStatusModalOpen ||
                         isHelpSupportOpen ||
                         activeToolId !== null ||
                          !!selectedPostForAnalytics
@@ -3463,7 +3456,6 @@ export const ToolsView = ({
                                       isUploadSheetOpen ||
                                       isPostingOpen ||
                                       isSidebarOpen ||
-                                      isProfileStatusModalOpen ||
                                       isHelpSupportOpen ||
                                       activeToolId !== null ||
                                       selectedPostForAnalytics !== null ||
@@ -3704,26 +3696,6 @@ export const ToolsView = ({
                   {language === "bn" ? "ম্যানেজমেন্ট" : "Management"}
                 </h3>
 
-                <button
-                  onClick={() => {
-                    handleCloseSidebar();
-                    setTimeout(() => {
-                      window.history.pushState({ view: "profile-status" }, "");
-                      setIsProfileStatusModalOpen(true);
-                    }, 50);
-                  }}
-                  className="w-full px-3 py-3 flex items-center gap-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-left active:scale-[0.98]"
-                >
-                  <div className="w-9 h-9 rounded-full bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center">
-                    <ShieldCheck className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                  </div>
-                  <span className="font-semibold text-[15px] text-slate-700 dark:text-slate-200 flex-1">
-                    {language === "bn"
-                      ? "প্রোফাইল স্ট্যাটাস"
-                      : "Profile Status"}
-                  </span>
-                </button>
-
                 <div className="h-px w-full bg-slate-100 dark:bg-slate-800/60 my-2" />
 
                 <h3 className="text-xs font-black text-slate-400 uppercase tracking-wider px-3 mb-1 mt-1">
@@ -3809,7 +3781,6 @@ export const ToolsView = ({
               isUploadSheetOpen ||
               isPostingOpen ||
               isSidebarOpen ||
-              isProfileStatusModalOpen ||
               isHelpSupportOpen ||
               activeToolId !== null ||
               selectedPostForAnalytics !== null
@@ -3817,18 +3788,6 @@ export const ToolsView = ({
           />
         )}
       </AnimatePresence>
-
-      <ProfileStatusModal
-        isOpen={isProfileStatusModalOpen}
-        onClose={() => {
-          if (isProfileStatusModalOpen) window.history.back();
-        }}
-        userProfile={sidebarUser || auth.currentUser}
-        onOpenSupport={() => {
-          setIsProfileStatusModalOpen(false);
-          setIsHelpSupportOpen(true);
-        }}
-      />
 
       <HelpSupportModal
         isOpen={isHelpSupportOpen}

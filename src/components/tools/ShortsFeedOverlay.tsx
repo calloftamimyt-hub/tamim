@@ -1,12 +1,13 @@
 import React, { useRef, useEffect, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Heart, Share2, Flag, Plus, ArrowLeft, Check, AlertTriangle, Bookmark, Download, X, Star, Send } from "lucide-react";
+import { Heart, Share2, Flag, Plus, ArrowLeft, Check, AlertTriangle, Bookmark, Download, X, Send } from "lucide-react";
 import { VerifiedBadge } from "@/components/VerifiedBadge";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { auth, db } from "@/lib/firebase";
 import { cn, formatCount, getApiUrl } from "@/lib/utils";
 import { ReportModal } from "@/components/tools/ReportModal";
 import { useOfflineMedia } from "@/hooks/useOfflineMedia";
+import { showRewardedAd, showInterstitialAd, showRewardedInterstitialAd } from "@/lib/admob";
 
 export const isPostVideo = (p: any): boolean => {
   const hasVideoType = p.type === "video" || p.content?.type === "video";
@@ -51,6 +52,40 @@ export const ShortsFeedOverlay = ({
   const containerRef = useRef<HTMLDivElement>(null);
   
   const [hasScrolledToInitial, setHasScrolledToInitial] = useState(false);
+  const viewedVideosCount = useRef(0);
+  const seenVideoIds = useRef<Set<string>>(new Set());
+
+  const handleVideoViewed = (postId: string) => {
+    if (seenVideoIds.current.has(postId)) return;
+    seenVideoIds.current.add(postId);
+    
+    viewedVideosCount.current += 1;
+    const count = viewedVideosCount.current;
+
+    // Trigger AdMob ads every 10 videos
+    if (count > 0 && count % 10 === 0) {
+      const cycle = Math.floor(count / 10) % 3;
+      
+      try {
+        switch (cycle) {
+          case 1:
+            // 10th, 40th, 70th...
+            showRewardedAd(() => {}, () => {}, () => {});
+            break;
+          case 2:
+            // 20th, 50th, 80th...
+            showInterstitialAd(() => {}, () => {});
+            break;
+          case 0:
+            // 30th, 60th, 90th...
+            showRewardedInterstitialAd(() => {}, () => {}, () => {});
+            break;
+        }
+      } catch (error) {
+        console.error("AdMob Error:", error);
+      }
+    }
+  };
   
   useEffect(() => {
     if (containerRef.current && initialPost && !hasScrolledToInitial) {
@@ -79,12 +114,12 @@ export const ShortsFeedOverlay = ({
       exit={{ opacity: 0, scale: 0.95 }}
       className="fixed inset-0 z-[500] bg-black"
     >
-      <div className="absolute top-safe left-4 z-10 p-2">
+      <div className="absolute top-safe left-2 z-10 p-1">
         <button
           onClick={() => window.history.back()}
-          className="p-2 bg-black/20 backdrop-blur-md rounded-full text-white active:scale-95 transition-transform"
+          className="p-2 text-white active:scale-95 transition-transform"
         >
-          <ArrowLeft className="w-6 h-6" />
+          <ArrowLeft className="w-6 h-6 drop-shadow-md" />
         </button>
       </div>
 
@@ -97,6 +132,7 @@ export const ShortsFeedOverlay = ({
             key={post.id} 
             post={post} 
             isOverlayOpen={isOverlayOpen}
+            onViewed={() => handleVideoViewed(post.id)}
           />
         ))}
       </div>
@@ -104,7 +140,7 @@ export const ShortsFeedOverlay = ({
   );
 };
 
-export const ShortVideoPlayer = ({ post, isOverlayOpen }: { post: any; isOverlayOpen: boolean }) => {
+export const ShortVideoPlayer = ({ post, isOverlayOpen, onViewed }: { post: any; isOverlayOpen: boolean; onViewed?: () => void }) => {
   const { language } = useLanguage();
   const videoRef = useRef<HTMLVideoElement>(null);
   const isPlaying = useRef(false);
@@ -118,6 +154,7 @@ export const ShortVideoPlayer = ({ post, isOverlayOpen }: { post: any; isOverlay
   const [showReportModal, setShowReportModal] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [isMediaLoaded, setIsMediaLoaded] = useState(false);
+  const [isActiveVideo, setIsActiveVideo] = useState(false);
   const [isMediaError, setIsMediaError] = useState(false);
   const [isFollowing, setIsFollowing] = useState(false);
   const [isVideoSaved, setIsVideoSaved] = useState(false);
@@ -199,17 +236,20 @@ export const ShortVideoPlayer = ({ post, isOverlayOpen }: { post: any; isOverlay
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
-          if (entry.isIntersecting && !isOverlayOpen && !showReportModal) {
+          if (entry.intersectionRatio >= 0.6 && !isOverlayOpen && !showReportModal) {
+            setIsActiveVideo(true);
             if (videoRef.current) {
               videoRef.current.play().catch(() => {});
             }
             isPlaying.current = true;
+            if (onViewed) onViewed();
             // Record view
             import("firebase/firestore").then(({ doc, increment, updateDoc }) => {
                const postRef = doc(db, "posts", post.id);
                updateDoc(postRef, { views: increment(1) }).catch(() => {});
             });
           } else {
+            setIsActiveVideo(false);
             if (videoRef.current) {
               videoRef.current.pause();
             }
@@ -217,7 +257,7 @@ export const ShortVideoPlayer = ({ post, isOverlayOpen }: { post: any; isOverlay
           }
         });
       },
-      { threshold: 0.6 }
+      { threshold: [0, 0.6] }
     );
     observer.observe(wrapperRef.current);
     return () => observer.disconnect();
