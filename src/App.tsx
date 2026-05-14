@@ -56,7 +56,6 @@ import { SeerahView } from "./pages/features/Seerah";
 import { SahabaView } from "./pages/features/Sahaba";
 import { HalalHaramView } from "./pages/features/HalalHaram";
 import { SunnahView } from "./pages/features/Sunnah";
-import { CreatorStudioView } from "./pages/features/CreatorStudioView";
 import { AlarmSettingsView } from "./pages/features/AlarmSettings";
 import Notifications from "./pages/Notifications";
 import { Scholars } from "./pages/Scholars";
@@ -791,12 +790,6 @@ export default function App() {
                 {activeTab === "sahaba" && <SahabaView />}
                 {activeTab === "halal-haram" && <HalalHaramView />}
                 {activeTab === "sunnah" && <SunnahView />}
-                {activeTab === "creator-studio" && (
-                  <CreatorStudioView 
-                    onBack={() => window.history.back()} 
-                    onNavigate={handleNavigate}
-                  />
-                )}
                 {activeTab === "notes" && (
                   <NotesView onBack={() => window.history.back()} />
                 )}

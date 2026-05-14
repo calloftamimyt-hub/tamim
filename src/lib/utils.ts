@@ -6,6 +6,11 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export const getApiUrl = (path: string) => {
+    if (!path) return '';
+    if (path.startsWith('http://') || path.startsWith('https://') || path.startsWith('blob:') || path.startsWith('data:')) {
+        return path;
+    }
+
     // If an explicit API URL is provided, use it
     if (import.meta.env.VITE_API_URL) {
        return `${import.meta.env.VITE_API_URL.replace(/\/$/, '')}${path}`;

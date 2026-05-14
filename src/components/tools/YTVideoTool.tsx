@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Youtube, ArrowLeft, Download, Search, Image, ExternalLink, AlertCircle, Loader2, Link, Play } from 'lucide-react';
+import { Video as Youtube, ArrowLeft, Download, Search, Image, ExternalLink, AlertCircle, Loader2, Link, Play } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory } from '@capacitor/filesystem';

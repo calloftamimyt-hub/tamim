@@ -26,8 +26,8 @@ import {
   Edit3,
   TrendingUp,
   TrendingDown,
-  Youtube,
-  Facebook,
+  Video as Youtube,
+  MessageCircle as Facebook,
   Wrench,
   Play,
   Star,
@@ -150,8 +150,6 @@ import { RandomNumTool } from "@/components/tools/RandomNumTool";
 import { TextCaseTool } from "@/components/tools/TextCaseTool";
 import { ProfileStatusModal } from "@/components/ProfileStatusModal";
 import { VideoAnalyticsOverlay } from "@/components/tools/VideoAnalyticsOverlay";
-import { VideoBoostOverlay } from "@/components/tools/VideoBoostOverlay";
-import { BoostCenterModal } from "@/components/tools/BoostCenterModal";
 import { DepositView } from "@/pages/features/DepositView";
 import { UUIDMakerTool } from "@/components/tools/UUIDMakerTool";
 import { CodeFormatTool } from "@/components/tools/CodeFormatTool";
@@ -165,8 +163,6 @@ import { PercentageCalcTool } from "@/components/tools/PercentageCalcTool";
 import { YTThumbnailTool } from "@/components/tools/YTThumbnailTool";
 import { PostContentOverlay } from "@/components/tools/PostContentOverlay";
 import { ReportModal } from "@/components/tools/ReportModal";
-import { MonetizationModal } from "@/components/tools/MonetizationModal";
-import { ShopModal } from "@/components/tools/ShopModal";
 import { ShortsFeedOverlay, isPostVideo } from "@/components/tools/ShortsFeedOverlay";
 import {
   AreaChart,
@@ -181,19 +177,6 @@ import { MuslimBrowser } from "@/components/MuslimBrowser";
 import { VerifiedBadge } from "@/components/VerifiedBadge";
 import { HelpSupportModal } from "@/components/tools/HelpSupportModal";
 import { useOfflineMedia, cacheMediaForOffline } from "@/hooks/useOfflineMedia";
-
-export const isPostActivelyBoosted = (post: any) => {
-  if (post.boostInfo?.status === "approved" || post.boostInfo?.isActive) {
-    const boostedAt = post.boostInfo.boostedAt?.toMillis ? post.boostInfo.boostedAt.toMillis() : (post.createdAt?.seconds ? post.createdAt.seconds * 1000 : Date.now());
-    const targetViews = post.boostInfo.targetViews || 1500;
-    const daysMs = (post.boostInfo.days || 1) * 24 * 60 * 60 * 1000;
-    const isTimeUp = (Date.now() - boostedAt) > daysMs;
-    const isCompleted = isTimeUp || (post.views || 0) >= targetViews;
-    const currentIsActive = post.boostInfo?.isActive ?? true;
-    return currentIsActive && !isCompleted;
-  }
-  return false;
-};
 
 const SOCIAL_TOOLS = [
   {
@@ -955,13 +938,11 @@ const QuickPostShort = ({ post, onClick }: { post: any; onClick: () => void }) =
 export const PostCard = ({
   post,
   isOverlayOpen,
-  onBoostClick,
   onAnalyticsClick,
   onVideoClick,
 }: {
   post: any;
   isOverlayOpen?: boolean;
-  onBoostClick?: (post: any) => void;
   onAnalyticsClick?: (post: any) => void;
   onVideoClick?: (post: any) => void;
 }) => {
@@ -1539,11 +1520,7 @@ export const PostCard = ({
             </div>
             <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider flex items-center gap-1.5 mt-0.5">
               <span>
-                {(isPostActivelyBoosted(post) || (post.isBoosted && !post.boostInfo)) ? (
-                  <span className="text-violet-600 dark:text-violet-400">
-                    {language === "bn" ? "প্রমোটেড" : "Sponsored"}
-                  </span>
-                ) : post.createdAt?.toDate ? (
+                {post.createdAt?.toDate ? (
                   new Date(post.createdAt.toDate()).toLocaleTimeString([], {
                     hour: "2-digit",
                     minute: "2-digit",
@@ -1691,9 +1668,20 @@ export const PostCard = ({
             </div>
           </div>
         ) : (
-          <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed font-medium">
-            {displayContent}
-          </p>
+          <div>
+            <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed font-medium">
+              {displayContent}
+            </p>
+            {(post.hashtags && Array.isArray(post.hashtags) && post.hashtags.length > 0) && (
+               <div className="flex flex-wrap gap-1 mt-2">
+                 {post.hashtags.map((tag: string) => (
+                    <span key={tag} className="text-[13px] font-bold text-blue-500 hover:underline cursor-pointer">
+                       {tag}
+                    </span>
+                 ))}
+               </div>
+            )}
+          </div>
         )}
       </div>
 
@@ -1886,16 +1874,9 @@ export const PostCard = ({
         </button>
       </div>
 
-      {/* Author Tools (Boost & Analytics) */}
+      {/* Author Tools (Analytics) */}
       {post.authorUid === auth.currentUser?.uid && (
         <div className="px-4 pb-2 pt-0.5 flex items-center gap-2">
-          <button
-            onClick={() => onBoostClick?.(post)}
-            className="flex-1 py-1.5 flex items-center justify-center gap-1.5 text-white bg-blue-600 hover:bg-blue-700 font-bold rounded-lg transition-all active:scale-95 text-[13px] shadow-sm"
-          >
-            <Rocket className="w-4 h-4" />
-            {language === "bn" ? "প্রমোট" : "Boost"}
-          </button>
           <button
             onClick={() => onAnalyticsClick?.(post)}
             className="flex-1 py-1.5 flex items-center justify-center gap-1.5 text-slate-700 dark:text-slate-300 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 font-bold rounded-lg transition-all active:scale-95 text-[13px]"
@@ -1959,12 +1940,10 @@ export const PostCard = ({
 };
 
 const ProfileView = ({
-  onBoostClick,
   onAnalyticsClick,
   onVideoClick,
   isOverlayOpen,
 }: {
-  onBoostClick?: (post: any) => void;
   onAnalyticsClick?: (post: any) => void;
   onVideoClick?: (post: any) => void;
   isOverlayOpen?: boolean;
@@ -2167,7 +2146,6 @@ const ProfileView = ({
               >
                 <PostCard 
                   post={post} 
-                  onBoostClick={(p) => onBoostClick?.(p)}
                   onAnalyticsClick={(p) => onAnalyticsClick?.(p)}
                   onVideoClick={onVideoClick}
                   isOverlayOpen={isOverlayOpen}
@@ -2220,46 +2198,19 @@ try {
 
       const postsData = approvedDocs.map((doc) => ({ id: doc.id, ...(doc.data() as Record<string, any>) }));
 
-      const normalPosts: any[] = [];
-      const boostedPosts: any[] = [];
-
-      postsData.forEach((p: any) => {
-        if (isPostActivelyBoosted(p) || (p.isBoosted && !p.boostInfo)) {
-          boostedPosts.push(p);
-        } else {
-          normalPosts.push(p);
-        }
-      });
-
       const getSortValue = (post: any) => {
         let hash = 0;
         for (let i = 0; i < post.id.length; i++) {
           hash = post.id.charCodeAt(i) + ((hash << 5) - hash);
         }
         const time = post.createdAt?.seconds || 0;
-        const randomBoost = Math.abs(hash + globalSessionSalt) % 259200;
-        return time + randomBoost;
+        const randomVariance = Math.abs(hash + globalSessionSalt) % 259200;
+        return time + randomVariance;
       };
 
-      normalPosts.sort((a, b) => getSortValue(b) - getSortValue(a));
-      boostedPosts.sort((a, b) => getSortValue(b) - getSortValue(a));
+      postsData.sort((a, b) => getSortValue(b) - getSortValue(a));
 
-      const mergedPosts: any[] = [];
-      let normalIndex = 0;
-      let boostedIndex = 0;
-
-      // Interleave: 1 boosted post followed by 3 normal posts
-      for (let i = 0; i < postsData.length; i++) {
-        if (i % 4 === 0 && boostedIndex < boostedPosts.length) {
-          mergedPosts.push(boostedPosts[boostedIndex++]);
-        } else if (normalIndex < normalPosts.length) {
-          mergedPosts.push(normalPosts[normalIndex++]);
-        } else if (boostedIndex < boostedPosts.length) {
-          mergedPosts.push(boostedPosts[boostedIndex++]);
-        }
-      }
-
-      globalPreloadedPosts = mergedPosts;
+      globalPreloadedPosts = postsData;
       globalIsPreloadedPostsLoading = false;
       notifyGlobalPreloadListeners();
     },
@@ -2384,13 +2335,9 @@ export const ToolsView = ({
   const [isProfileStatusModalOpen, setIsProfileStatusModalOpen] =
     useState(false);
   const [isHelpSupportOpen, setIsHelpSupportOpen] = useState(false);
-  const [isMonetizationOpen, setIsMonetizationOpen] = useState(false);
-  const [isShopOpen, setIsShopOpen] = useState(false);
   
-  // Analytics and Boost States
-  const [selectedPostForBoost, setSelectedPostForBoost] = useState<any>(null);
+  // Analytics States
   const [selectedPostForAnalytics, setSelectedPostForAnalytics] = useState<any>(null);
-  const [isBoostCenterModalOpen, setIsBoostCenterModalOpen] = useState(false);
   const [isDepositModalOpen, setIsDepositModalOpen] = useState(false);
   
   const [currentUserAvatar, setCurrentUserAvatar] = useState<string | null>(
@@ -2504,20 +2451,27 @@ export const ToolsView = ({
 
   useEffect(() => {
     // Toggle global navigation visibility when modals are open
-    const isAnyModalOpen = isUploadSheetOpen || !!selectedPostForBoost || !!selectedPostForAnalytics || isBoostCenterModalOpen || isProfileStatusModalOpen || isMonetizationOpen || isShopOpen;
+    const isAnyModalOpen = isUploadSheetOpen || !!selectedPostForAnalytics || isProfileStatusModalOpen;
     const event = new CustomEvent("set-nav-visibility", {
       detail: !isAnyModalOpen,
     });
     window.dispatchEvent(event);
-  }, [isUploadSheetOpen, selectedPostForBoost, selectedPostForAnalytics, isBoostCenterModalOpen, isProfileStatusModalOpen, isMonetizationOpen, isShopOpen]);
+  }, [isUploadSheetOpen, selectedPostForAnalytics, isProfileStatusModalOpen]);
 
   const categories = [
     { id: "all", label: { bn: "সব", en: "All" } },
-    { id: "turkey", label: { bn: "তুরস্ক", en: "Turkey" } },
-    { id: "news", label: { bn: "খবর", en: "News" } },
     { id: "islamic", label: { bn: "ইসলামিক", en: "Islamic" } },
-    { id: "shorts", label: { bn: "স্পিড", en: "Speed" } },
+    { id: "shorts", label: { bn: "শর্টস", en: "Shorts" } },
+    { id: "tech", label: { bn: "প্রযুক্তি", en: "Tech" } },
+    { id: "sports", label: { bn: "খেলাধুলা", en: "Sports" } },
+    { id: "news", label: { bn: "সংবাদ", en: "News" } },
+    { id: "gaming", label: { bn: "গেমিং", en: "Gaming" } },
+    { id: "music", label: { bn: "মিউজিক", en: "Music" } },
     { id: "movies", label: { bn: "মুভি", en: "Movies" } },
+    { id: "vlog", label: { bn: "ভ্লগ", en: "Vlog" } },
+    { id: "podcast", label: { bn: "পডকাস্ট", en: "Podcast" } },
+    { id: "comedy", label: { bn: "কমেডি", en: "Comedy" } },
+    { id: "education", label: { bn: "শিক্ষা", en: "Education" } },
     { id: "mix", label: { bn: "মিক্স", en: "Mix" } },
   ];
 
@@ -2627,17 +2581,6 @@ export const ToolsView = ({
 
           const postsData = approvedDocs.map((doc) => ({ id: doc.id, ...(doc.data() as Record<string, any>) }));
 
-          const normalPosts: any[] = [];
-          const boostedPosts: any[] = [];
-
-          postsData.forEach((p: any) => {
-            if (isPostActivelyBoosted(p) || (p.isBoosted && !p.boostInfo)) {
-              boostedPosts.push(p);
-            } else {
-              normalPosts.push(p);
-            }
-          });
-
           // Randomize feed except the absolute newest
           const getSortValue = (post: any) => {
             let hash = 0;
@@ -2646,29 +2589,13 @@ export const ToolsView = ({
             }
             const time = post.createdAt?.seconds || 0;
             // Add up to 3 days of variance to randomize the position
-            const randomBoost = Math.abs(hash + sessionSalt) % 259200;
-            return time + randomBoost;
+            const randomVariance = Math.abs(hash + sessionSalt) % 259200;
+            return time + randomVariance;
           };
 
-          normalPosts.sort((a, b) => getSortValue(b) - getSortValue(a));
-          boostedPosts.sort((a, b) => getSortValue(b) - getSortValue(a));
+          postsData.sort((a, b) => getSortValue(b) - getSortValue(a));
 
-          const mergedPosts: any[] = [];
-          let normalIndex = 0;
-          let boostedIndex = 0;
-
-          // Interleave: 1 boosted post followed by 3 normal posts
-          for (let i = 0; i < postsData.length; i++) {
-            if (i % 4 === 0 && boostedIndex < boostedPosts.length) {
-              mergedPosts.push(boostedPosts[boostedIndex++]);
-            } else if (normalIndex < normalPosts.length) {
-              mergedPosts.push(normalPosts[normalIndex++]);
-            } else if (boostedIndex < boostedPosts.length) {
-              mergedPosts.push(boostedPosts[boostedIndex++]);
-            }
-          }
-
-          setPosts(mergedPosts);
+          setPosts(postsData);
           setIsPostsLoading(false);
         },
         (error) => {
@@ -2719,17 +2646,6 @@ export const ToolsView = ({
         setLastVisible(approvedDocs[approvedDocs.length - 1]);
         const postsData = approvedDocs.map((doc) => ({ id: doc.id, ...(doc.data() as Record<string, any>) }));
 
-        const normalPosts: any[] = [];
-        const boostedPosts: any[] = [];
-
-        postsData.forEach((p: any) => {
-          if (isPostActivelyBoosted(p) || (p.isBoosted && !p.boostInfo)) {
-            boostedPosts.push(p);
-          } else {
-            normalPosts.push(p);
-          }
-        });
-
         // Randomize
         const getSortValue = (post: any) => {
           let hash = 0;
@@ -2737,31 +2653,16 @@ export const ToolsView = ({
             hash = post.id.charCodeAt(i) + ((hash << 5) - hash);
           }
           const time = post.createdAt?.seconds || 0;
-          const randomBoost = Math.abs(hash + sessionSalt) % 259200;
-          return time + randomBoost;
+          const randomVariance = Math.abs(hash + sessionSalt) % 259200;
+          return time + randomVariance;
         };
 
-        normalPosts.sort((a, b) => getSortValue(b) - getSortValue(a));
-        boostedPosts.sort((a, b) => getSortValue(b) - getSortValue(a));
-
-        const mergedPosts: any[] = [];
-        let normalIndex = 0;
-        let boostedIndex = 0;
-
-        for (let i = 0; i < postsData.length; i++) {
-          if (i % 4 === 0 && boostedIndex < boostedPosts.length) {
-            mergedPosts.push(boostedPosts[boostedIndex++]);
-          } else if (normalIndex < normalPosts.length) {
-            mergedPosts.push(normalPosts[normalIndex++]);
-          } else if (boostedIndex < boostedPosts.length) {
-            mergedPosts.push(boostedPosts[boostedIndex++]);
-          }
-        }
+        postsData.sort((a, b) => getSortValue(b) - getSortValue(a));
 
         setPosts((prev) => {
            // Basic deduplication to avoid duplicating posts due to real-time sync mixing with batch sync
            const existingIds = new Set(prev.map(p => p.id));
-           const newUnique = mergedPosts.filter(p => !existingIds.has(p.id));
+           const newUnique = postsData.filter((p: any) => !existingIds.has(p.id));
            return [...prev, ...newUnique];
         });
       } else {
@@ -2800,10 +2701,6 @@ export const ToolsView = ({
         setIsHelpSupportOpen(false);
       } else if (isProfileStatusModalOpen) {
         setIsProfileStatusModalOpen(false);
-      } else if (isMonetizationOpen) {
-        setIsMonetizationOpen(false);
-      } else if (isShopOpen) {
-        setIsShopOpen(false);
       } else if (isSidebarOpen) {
         setIsSidebarOpen(false);
       } else if (isShortsFeedOpen) {
@@ -2819,9 +2716,7 @@ export const ToolsView = ({
     isSidebarOpen,
     isUploadSheetOpen,
     isProfileStatusModalOpen,
-    isHelpSupportOpen,
-    isMonetizationOpen,
-    isShopOpen
+    isHelpSupportOpen
   ]);
 
   const handleOpenSidebar = () => {
@@ -2872,7 +2767,7 @@ export const ToolsView = ({
       <header
         className={cn(
           "w-full bg-white dark:bg-slate-900 transition-all z-[140] fixed top-0 pt-safe duration-300",
-          (!isHeaderVisible || activeToolId || isPostingOpen || !!selectedPostForBoost || !!selectedPostForAnalytics || isBoostCenterModalOpen || isShortsFeedOpen) && "-translate-y-full",
+          (!isHeaderVisible || activeToolId || isPostingOpen || !!selectedPostForAnalytics || isShortsFeedOpen) && "-translate-y-full",
           activeToolId
             ? "inset-x-0 pb-3 shadow-sm border-b border-slate-100 dark:border-slate-800 z-[170] px-6"
             : "border-none",
@@ -3420,7 +3315,6 @@ export const ToolsView = ({
                     <AnalyticsDashboard />
                   ) : activeTab === "profile" && !activeToolId ? (
                     <ProfileView 
-                      onBoostClick={(p) => setSelectedPostForBoost(p)}
                       onAnalyticsClick={(p) => setSelectedPostForAnalytics(p)}
                       isOverlayOpen={
                         isShortsFeedOpen ||
@@ -3430,7 +3324,6 @@ export const ToolsView = ({
                         isProfileStatusModalOpen ||
                         isHelpSupportOpen ||
                         activeToolId !== null ||
-                        !!selectedPostForBoost ||
                          !!selectedPostForAnalytics
                       }
                       onVideoClick={(p) => {
@@ -3517,7 +3410,7 @@ export const ToolsView = ({
                             key={cat.id}
                             onClick={() => setSelectedCategory(cat.id)}
                             className={cn(
-                              "px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all border",
+                              "px-4 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all border",
                               selectedCategory === cat.id
                                 ? "bg-slate-900 dark:bg-white text-white dark:text-slate-900 border-slate-900 dark:border-white shadow-md"
                                 : "bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700",
@@ -3556,7 +3449,6 @@ export const ToolsView = ({
                                 >
                                   <PostCard
                                     post={post}
-                                    onBoostClick={(p) => setSelectedPostForBoost(p)}
                                     onAnalyticsClick={(p) => setSelectedPostForAnalytics(p)}
                                     onVideoClick={(p) => {
                                       // Check if it's a video before overriding click behavior
@@ -3574,9 +3466,7 @@ export const ToolsView = ({
                                       isProfileStatusModalOpen ||
                                       isHelpSupportOpen ||
                                       activeToolId !== null ||
-                                      selectedPostForBoost !== null ||
                                       selectedPostForAnalytics !== null ||
-                                      isBoostCenterModalOpen ||
                                       isShortsFeedOpen
                                     }
                                   />
@@ -3818,42 +3708,6 @@ export const ToolsView = ({
                   onClick={() => {
                     handleCloseSidebar();
                     setTimeout(() => {
-                      window.history.pushState({ view: "monetization" }, "");
-                      setIsMonetizationOpen(true);
-                    }, 50);
-                  }}
-                  className="w-full px-3 py-3 flex items-center gap-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-left active:scale-[0.98]"
-                >
-                  <div className="w-9 h-9 rounded-full bg-orange-50 dark:bg-orange-500/10 flex items-center justify-center relative">
-                    <Coins className="w-5 h-5 text-orange-600 dark:text-orange-400" />
-                  </div>
-                  <span className="font-semibold text-[15px] text-slate-700 dark:text-slate-200 flex-1">
-                    {language === "bn" ? "মনিটাইজেশন" : "Monetization"}
-                  </span>
-                </button>
-
-                <button
-                  onClick={() => {
-                    handleCloseSidebar();
-                    setTimeout(() => {
-                      window.history.pushState({ view: "shop" }, "");
-                      setIsShopOpen(true);
-                    }, 50);
-                  }}
-                  className="w-full px-3 py-3 flex items-center gap-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-left active:scale-[0.98]"
-                >
-                  <div className="w-9 h-9 rounded-full bg-pink-50 dark:bg-pink-500/10 flex items-center justify-center relative">
-                    <Store className="w-5 h-5 text-pink-600 dark:text-pink-400" />
-                  </div>
-                  <span className="font-semibold text-[15px] text-slate-700 dark:text-slate-200 flex-1">
-                    {language === "bn" ? "শপ" : "Shop"}
-                  </span>
-                </button>
-
-                <button
-                  onClick={() => {
-                    handleCloseSidebar();
-                    setTimeout(() => {
                       window.history.pushState({ view: "profile-status" }, "");
                       setIsProfileStatusModalOpen(true);
                     }, 50);
@@ -3867,25 +3721,6 @@ export const ToolsView = ({
                     {language === "bn"
                       ? "প্রোফাইল স্ট্যাটাস"
                       : "Profile Status"}
-                  </span>
-                </button>
-
-                <button
-                  onClick={() => {
-                    handleCloseSidebar();
-                    setTimeout(() => {
-                      setIsBoostCenterModalOpen(true);
-                    }, 50);
-                  }}
-                  className="w-full px-3 py-3 flex items-center gap-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-left active:scale-[0.98]"
-                >
-                  <div className="w-9 h-9 rounded-full bg-violet-50 dark:bg-violet-500/10 flex items-center justify-center">
-                    <Rocket className="w-5 h-5 text-violet-600 dark:text-violet-400" />
-                  </div>
-                  <span className="font-semibold text-[15px] text-slate-700 dark:text-slate-200 flex-1">
-                    {language === "bn"
-                      ? "বুস্ট সেন্টার"
-                      : "Boost Center"}
                   </span>
                 </button>
 
@@ -3977,11 +3812,7 @@ export const ToolsView = ({
               isProfileStatusModalOpen ||
               isHelpSupportOpen ||
               activeToolId !== null ||
-              selectedPostForBoost !== null ||
-              selectedPostForAnalytics !== null ||
-              isBoostCenterModalOpen ||
-              isMonetizationOpen ||
-              isShopOpen
+              selectedPostForAnalytics !== null
             }
           />
         )}
@@ -4007,17 +3838,6 @@ export const ToolsView = ({
       />
       
       <AnimatePresence>
-        {selectedPostForBoost && (
-          <VideoBoostOverlay
-            post={selectedPostForBoost}
-            isOpen={!!selectedPostForBoost}
-            onClose={() => setSelectedPostForBoost(null)}
-            onOpenDeposit={() => setIsDepositModalOpen(true)}
-          />
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
         {selectedPostForAnalytics && (
           <VideoAnalyticsOverlay
             post={selectedPostForAnalytics}
@@ -4034,31 +3854,6 @@ export const ToolsView = ({
            />
         )}
       </AnimatePresence>
-
-      <AnimatePresence>
-        {isBoostCenterModalOpen && (
-          <BoostCenterModal
-            isOpen={isBoostCenterModalOpen}
-            onClose={() => setIsBoostCenterModalOpen(false)}
-            onOpenAnalytics={(post) => setSelectedPostForAnalytics(post)}
-            onOpenBoost={(post) => setSelectedPostForBoost(post)}
-          />
-        )}
-      </AnimatePresence>
-
-      <MonetizationModal 
-        isOpen={isMonetizationOpen}
-        onClose={() => {
-            if (isMonetizationOpen) window.history.back();
-        }}
-      />
-
-      <ShopModal 
-        isOpen={isShopOpen}
-        onClose={() => {
-            if (isShopOpen) window.history.back();
-        }}
-      />
 
       <AnimatePresence>
         {showSavedPosts && (

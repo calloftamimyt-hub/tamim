@@ -12,8 +12,8 @@ import {
   Eye,
   FileText,
   Mail,
-  Facebook,
-  Instagram,
+  MessageCircle as Facebook,
+  Camera as Instagram,
   ChevronLeft,
   ChevronRight,
   Wallet,
@@ -68,7 +68,6 @@ import { AccountVerificationView } from "./AccountVerificationView";
 import { LegalPageView } from "./LegalPageView";
 import { QuizView, ALL_QUIZZES, UnifiedQuiz, useQuizProgress } from "./Quiz";
 import { SudokuGame } from "./SudokuGame";
-import { CreatorStudioView } from "./CreatorStudioView";
 import { showInterstitialAd } from "@/lib/admob";
 import { earningService, EarningHistory } from "@/services/earningService";
 import {
@@ -105,12 +104,6 @@ interface UserBalance {
 }
 
 const EARNING_CATEGORIES = [
-  {
-    id: "creator-studio",
-    icon: PlayCircle,
-    color: "text-white",
-    bg: "bg-gradient-to-br from-red-500 to-rose-600",
-  },
   {
     id: "mobile-recharge",
     icon: Smartphone,
@@ -629,10 +622,6 @@ export function EarningView({ onBack }: EarningViewProps) {
     return (
       <LegalPageView type="privacy" onBack={() => setActiveSubView(null)} />
     );
-  }
-
-  if (activeSubView === "creator-studio") {
-    return <CreatorStudioView onBack={() => setActiveSubView(null)} onNavigate={(v) => setActiveSubView(v)} />;
   }
 
   if (activeSubView === "sudoku") {

@@ -216,6 +216,7 @@ export const PostContentOverlay: React.FC<PostContentOverlayProps> = ({
       const postsCollection = collection(db, "posts");
       const postRef = await addDoc(postsCollection, {
           content: cleanTitle,
+          hashtags: selectedHashtags,
           isBoosted: isViral,
           type: fileType,
           category: category,
@@ -509,6 +510,7 @@ export const PostContentOverlay: React.FC<PostContentOverlayProps> = ({
                                 src={previewUrl || ""} 
                                 alt="Preview" 
                                 className="w-full h-full object-cover"
+                                referrerPolicy="no-referrer"
                             />
                         ) : (
                             <video 

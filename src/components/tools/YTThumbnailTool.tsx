@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ToolHero } from './ToolHero';
-import { Youtube, ArrowLeft, Download, Search, Image, ExternalLink, AlertCircle, Loader2, Link } from 'lucide-react';
+import { Video as Youtube, ArrowLeft, Download, Search, Image, ExternalLink, AlertCircle, Loader2, Link } from 'lucide-react';
 
 import { motion } from 'motion/react';
 import { Capacitor } from '@capacitor/core';

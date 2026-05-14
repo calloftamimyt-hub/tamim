@@ -258,7 +258,7 @@ export function AppSettings({ onBack }: AppSettingsProps) {
             <Search className="w-6 h-6 stroke-[2px] text-slate-800 dark:text-slate-200" />
           </button>
           {auth.currentUser?.photoURL ? (
-            <img src={auth.currentUser.photoURL} alt="Profile" className="w-8 h-8 rounded-full border border-slate-200 dark:border-slate-800" />
+            <img src={auth.currentUser.photoURL} alt="Profile" className="w-8 h-8 rounded-full border border-slate-200 dark:border-slate-800" referrerPolicy="no-referrer" />
           ) : (
             <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center">
               <User className="w-4 h-4 text-slate-500" />

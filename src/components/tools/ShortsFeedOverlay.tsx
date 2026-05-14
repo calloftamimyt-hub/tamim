@@ -123,102 +123,6 @@ export const ShortVideoPlayer = ({ post, isOverlayOpen }: { post: any; isOverlay
   const [isVideoSaved, setIsVideoSaved] = useState(false);
   const [showDownloadMenu, setShowDownloadMenu] = useState(false);
   const [downloadState, setDownloadState] = useState<"idle" | "downloading" | "success" | "error">("idle");
-  const [showGiftSheet, setShowGiftSheet] = useState(false);
-  const [userInventory, setUserInventory] = useState<any[]>([]);
-  const [isSendingGift, setIsSendingGift] = useState(false);
-
-  // Fetch user inventory when gift sheet opens
-  useEffect(() => {
-    let unsub: any;
-    if (showGiftSheet && auth.currentUser) {
-      const fetchInv = async () => {
-        const { collection, onSnapshot } = await import("firebase/firestore");
-        const { handleFirestoreError, OperationType } = await import("@/lib/firebase");
-        const invPath = `users/${auth.currentUser!.uid}/inventory`;
-        const invRef = collection(db, invPath);
-        unsub = onSnapshot(invRef, 
-          (snap: any) => {
-            const items = snap.docs.map((doc: any) => ({ id: doc.id, ...doc.data() }))
-              .filter((item: any) => item.quantity > 0);
-            setUserInventory(items);
-          },
-          (error: any) => {
-            console.error("Inventory Listener Error:", error);
-            handleFirestoreError(error, OperationType.LIST, invPath);
-          }
-        );
-      };
-      fetchInv();
-    }
-    return () => { if (unsub) unsub(); };
-  }, [showGiftSheet]);
-
-  const handleSendGift = async (gift: any) => {
-    if (!auth.currentUser || isSendingGift) return;
-    setIsSendingGift(true);
-    try {
-      const { doc, runTransaction, serverTimestamp, increment, collection } = await import("firebase/firestore");
-      
-      await runTransaction(db, async (transaction) => {
-        // 1. Check user inventory
-        const inventoryRef = doc(db, `users/${auth.currentUser!.uid}/inventory`, gift.id);
-        const invDoc = await transaction.get(inventoryRef);
-        
-        if (!invDoc.exists() || invDoc.data().quantity <= 0) {
-          throw new Error("Insufficient gift quantity");
-        }
-        
-        // 2. Subtract from user inventory
-        transaction.update(inventoryRef, {
-          quantity: increment(-1),
-          updatedAt: serverTimestamp()
-        });
-        
-        // 3. Add to creator's balance
-        const creatorBalanceRef = doc(db, "user_balances", post.authorUid);
-        const creatorDoc = await transaction.get(creatorBalanceRef);
-        
-        if (creatorDoc.exists()) {
-          transaction.update(creatorBalanceRef, {
-            totalEarned: increment(gift.price),
-            giftsEarned: increment(gift.price),
-            updatedAt: serverTimestamp()
-          });
-        } else {
-          transaction.set(creatorBalanceRef, {
-            userId: post.authorUid,
-            totalEarned: gift.price,
-            giftsEarned: gift.price,
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp()
-          });
-        }
-        
-        // 4. Record history for creator
-        const historyRef = doc(collection(db, `users/${post.authorUid}/earning_history`));
-        transaction.set(historyRef, {
-          userId: post.authorUid,
-          type: `Received Gift: ${gift.name_en}`,
-          amount: gift.price,
-          status: 'approved',
-          fromUserId: auth.currentUser!.uid,
-          fromUserName: auth.currentUser!.displayName || 'User',
-          postId: post.id,
-          createdAt: serverTimestamp()
-        });
-      });
-      
-      // Success feedback could be added here (e.g. animation)
-      const successMsg = language === 'bn' ? 'গিফট পাঠানো সফল হয়েছে!' : 'Gift sent successfully!';
-      alert(successMsg);
-      setShowGiftSheet(false);
-    } catch (e: any) {
-      console.error(e);
-      alert(language === 'bn' ? 'গিফট পাঠাতে ব্যর্থ হয়েছে' : 'Failed to send gift');
-    } finally {
-      setIsSendingGift(false);
-    }
-  };
 
   useEffect(() => {
     if (!wrapperRef.current) return;
@@ -557,16 +461,6 @@ export const ShortVideoPlayer = ({ post, isOverlayOpen }: { post: any; isOverlay
 
         <div className="flex flex-col items-center gap-1">
           <button
-            onClick={(e) => { e.stopPropagation(); setShowGiftSheet(true); }}
-            className="p-3 rounded-full bg-yellow-400/20 backdrop-blur-xl text-yellow-400 active:scale-95 transition-transform"
-          >
-            <Star className="w-6 h-6 fill-current" />
-          </button>
-          <span className="text-[11px] font-black text-white shadow-sm">{language === 'bn' ? 'উপহার' : 'Gift'}</span>
-        </div>
-
-        <div className="flex flex-col items-center gap-1">
-          <button
             onClick={handleShare}
             className="p-3 rounded-full bg-white/10 backdrop-blur-xl text-white active:scale-90"
           >
@@ -637,7 +531,7 @@ export const ShortVideoPlayer = ({ post, isOverlayOpen }: { post: any; isOverlay
         <div className="flex items-center gap-3 mb-3">
           <div className="relative">
              {authorAvatar ? (
-               <img src={getApiUrl(authorAvatar)} className="w-11 h-11 rounded-full border-2 border-white shadow-lg" crossOrigin="anonymous" />
+               <img src={getApiUrl(authorAvatar)} className="w-11 h-11 rounded-full border-2 border-white shadow-lg" referrerPolicy="no-referrer" />
              ) : (
                 <div className="w-11 h-11 rounded-full bg-blue-600 flex items-center justify-center text-white font-black text-xl border-2 border-white">
                   {post.authorName?.charAt(0)}
@@ -667,81 +561,20 @@ export const ShortVideoPlayer = ({ post, isOverlayOpen }: { post: any; isOverlay
         <p className="text-sm text-white font-medium line-clamp-3 leading-relaxed shadow-sm pr-12">
           {displayContent}
         </p>
+        {(post.hashtags && Array.isArray(post.hashtags) && post.hashtags.length > 0) && (
+           <div className="flex flex-wrap gap-1 mt-1 pr-12">
+             {post.hashtags.map((tag: string) => (
+                <span key={tag} className="text-xs font-bold text-blue-400 drop-shadow-md">
+                   {tag}
+                </span>
+             ))}
+           </div>
+        )}
       </div>
 
       <AnimatePresence>
         {showReportModal && (
           <ReportModal post={post} onClose={() => setShowReportModal(false)} />
-        )}
-      </AnimatePresence>
-
-      {/* Gift Inventory Sheet */}
-      <AnimatePresence>
-        {showGiftSheet && (
-          <div className="fixed inset-0 z-[600] flex items-end justify-center px-4 pb-0 pointer-events-none">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowGiftSheet(false)}
-              className="absolute inset-0 bg-black/60 backdrop-blur-sm pointer-events-auto"
-            />
-            <motion.div
-              initial={{ y: "100%" }}
-              animate={{ y: 0 }}
-              exit={{ y: "100%" }}
-              transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              className="w-full max-w-md bg-white dark:bg-slate-900 rounded-t-[32px] overflow-hidden pointer-events-auto relative pb-safe"
-            >
-              <div className="p-1 flex flex-col items-center">
-                <div className="w-12 h-1 bg-slate-200 dark:bg-slate-700 rounded-full my-3" />
-                
-                <div className="w-full px-6 py-2 flex items-center justify-between mb-4">
-                  <h3 className="text-xl font-bold text-slate-800 dark:text-white">
-                    {language === 'bn' ? 'গিফট ইনভেন্টরি' : 'Gift Inventory'}
-                  </h3>
-                  <button 
-                    onClick={() => setShowGiftSheet(false)}
-                    className="p-2 bg-slate-100 dark:bg-slate-800 rounded-full"
-                  >
-                    <X className="w-5 h-5 text-slate-500" />
-                  </button>
-                </div>
-
-                <div className="w-full px-6 grid grid-cols-3 gap-4 mb-8 max-h-[400px] overflow-y-auto pt-2 pb-6">
-                  {userInventory.length > 0 ? (
-                    userInventory.map((item) => (
-                      <button
-                        key={item.id}
-                        onClick={() => handleSendGift(item)}
-                        disabled={isSendingGift}
-                        className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-4 flex flex-col items-center border border-transparent hover:border-primary/30 transition-all active:scale-95"
-                      >
-                        <span className="text-3xl mb-2">{item.icon}</span>
-                        <span className="text-[13px] font-bold text-slate-800 dark:text-white text-center line-clamp-1">
-                          {language === 'bn' ? item.name_bn : item.name_en}
-                        </span>
-                        <div className="mt-1 bg-primary/10 px-2 py-0.5 rounded-full">
-                          <span className="text-[10px] font-black text-primary">x{item.quantity}</span>
-                        </div>
-                      </button>
-                    ))
-                  ) : (
-                    <div className="col-span-3 py-12 flex flex-col items-center text-center">
-                      <div className="w-20 h-20 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mb-4">
-                        <Star className="w-10 h-10 text-slate-300" />
-                      </div>
-                      <p className="text-slate-500 dark:text-slate-400 font-medium px-6">
-                        {language === 'bn' 
-                          ? 'আপনার কাছে কোনো গিফট নেই! শপ থেকে গিফট কিনুন।' 
-                          : 'You don\'t have any gifts! Buy some from the shop.'}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </motion.div>
-          </div>
         )}
       </AnimatePresence>
     </div>

@@ -54,7 +54,7 @@ import {
   UsersRound,
   Scale,
   Sparkles,
-  Youtube,
+  Video as Youtube,
 } from "lucide-react";
 import { openSystemAlarm } from "@/lib/alarmUtils";
 import { cn } from "@/lib/utils";
