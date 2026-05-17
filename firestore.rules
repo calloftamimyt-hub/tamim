@@ -647,6 +647,27 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
 
+    function isValidParentalControl(data) {
+      return data.keys().hasAny(['updatedAt']) &&
+             (!('role' in data) || data.role in ['guardian', 'child']) &&
+             (!('pairingCode' in data) || data.pairingCode is string) &&
+             (!('guardianId' in data) || data.guardianId == null || data.guardianId is string) &&
+             (!('guardianEmail' in data) || data.guardianEmail == null || data.guardianEmail is string) &&
+             (!('emailAlerts' in data) || data.emailAlerts is bool) &&
+             (!('telegramChatId' in data) || data.telegramChatId == null || data.telegramChatId is string) &&
+             (!('telegramAlerts' in data) || data.telegramAlerts is bool);
+    }
+
+    match /parental_controls/{controlId} {
+      // Child or Guardian fetching their own
+      allow get: if isOwner(controlId) || isAdmin();
+      // Guardian fetching linked children
+      allow list: if isAuthenticated() && request.query.limit <= 100;
+      allow create: if isOwner(controlId) && isValidParentalControl(request.resource.data);
+      allow update: if isAuthenticated() && isValidParentalControl(request.resource.data);
+      allow delete: if isOwner(controlId) || isAdmin();
+    }
+
     match /otps/{otpId} {
       allow read, write: if false;
     }

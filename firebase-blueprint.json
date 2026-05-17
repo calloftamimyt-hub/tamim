@@ -393,6 +393,19 @@
       },
       "required": ["name", "description", "phoneNumber", "imageUrl", "createdAt"]
     },
+    "ParentalControl": {
+      "title": "ParentalControl",
+      "description": "Parental control linking data",
+      "type": "object",
+      "properties": {
+        "role": { "type": "string", "enum": ["guardian", "child"] },
+        "pairingCode": { "type": "string" },
+        "guardianId": { "type": "string" },
+        "guardianEmail": { "type": "string" },
+        "emailAlerts": { "type": "boolean" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      }
+    },
     "MonetizationRequest": {
       "title": "MonetizationRequest",
       "description": "A request for monetization",
@@ -408,6 +421,10 @@
     }
   },
   "firestore": {
+    "/parental_controls/{controlId}": {
+      "schema": "ParentalControl",
+      "description": "Information about parent and child linking"
+    },
     "/monetizationRequests/{userId}": {
       "schema": "MonetizationRequest",
       "description": "Collection of monetization requests"

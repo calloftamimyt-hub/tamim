@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   User, Settings, Bell, Shield, HelpCircle, LogOut, ChevronRight, 
   Calendar, Award, Flame, BookOpen, Heart, MessageSquare, ShoppingBag,
-  Lock, Trash2, Globe, Edit3, CheckCircle2, Star, Bookmark, BookmarkCheck, Clock,
+  Lock, Trash2, Globe, Edit3, CheckCircle2, Star, Bookmark, BookmarkCheck, Clock, VolumeX,
   Trophy, Zap, Hash, CircleDot, Sparkles, LogIn, X, MapPin, Search, Loader2,
   ArrowLeft, Send, Droplets, Bed, HeartHandshake, Camera, AlertTriangle, Activity
 } from 'lucide-react';
@@ -55,6 +55,8 @@ import { LanguageSelectionView } from './features/LanguageSelectionView';
 import { SocialMediaBlocker } from './features/SocialMediaBlocker';
 import { WebsiteBlocker } from './features/WebsiteBlocker';
 import { ScreenTime } from './features/ScreenTime';
+import { PrayerAutoSilentView } from './features/PrayerAutoSilentView';
+import { GuardianControlView } from './features/GuardianControlView';
 
 import { getFriendlyErrorMessage } from '@/lib/errorUtils';
 import { checkAndRegisterDevice } from '../lib/device';
@@ -217,6 +219,8 @@ export function Profile({ onNavigate }: { onNavigate?: (tab: string) => void }) 
   const [showSocialMediaBlocker, setShowSocialMediaBlocker] = useState(false);
   const [showWebsiteBlocker, setShowWebsiteBlocker] = useState(false);
   const [showScreenTime, setShowScreenTime] = useState(false);
+  const [showAutoSilent, setShowAutoSilent] = useState(false);
+  const [showGuardianControl, setShowGuardianControl] = useState(false);
   const [isVerified, setIsVerified] = useState<boolean | undefined>(undefined);
   const [reportsCount, setReportsCount] = useState(0);
   const [profileIssue, setProfileIssue] = useState("");
@@ -330,6 +334,8 @@ export function Profile({ onNavigate }: { onNavigate?: (tab: string) => void }) 
         setShowSocialMediaBlocker(false);
         setShowWebsiteBlocker(false);
         setShowScreenTime(false);
+        setShowAutoSilent(false);
+        setShowGuardianControl(false);
       };
       
       window.addEventListener('popstate', handlePopState);
@@ -1279,6 +1285,16 @@ export function Profile({ onNavigate }: { onNavigate?: (tab: string) => void }) 
                   />
                   <MenuItem 
                     icon={<Shield className="text-indigo-500" />} 
+                    title={language === 'bn' ? 'প্যারেন্টাল কন্ট্রোল' : 'Parental Control'} 
+                    onClick={() => setShowGuardianControl(true)}
+                  />
+                  <MenuItem 
+                    icon={<VolumeX className="text-purple-500" />} 
+                    title={language === 'bn' ? 'অটো সাইলেন্ট' : 'Auto Silent'} 
+                    onClick={() => setShowAutoSilent(true)}
+                  />
+                  <MenuItem 
+                    icon={<Shield className="text-indigo-500" />} 
                     title={language === 'bn' ? 'সোশ্যাল মিডিয়া ব্লকার' : 'Social Media Blocker'} 
                     onClick={() => setShowSocialMediaBlocker(true)}
                   />
@@ -1880,6 +1896,24 @@ export function Profile({ onNavigate }: { onNavigate?: (tab: string) => void }) 
               <WebsiteBlocker 
                 language={language}
                 onBack={() => setShowWebsiteBlocker(false)}
+              />
+            )}
+          </AnimatePresence>
+
+          {/* Auto Silent */}
+          <AnimatePresence>
+            {showAutoSilent && (
+              <PrayerAutoSilentView 
+                onBack={() => setShowAutoSilent(false)}
+              />
+            )}
+          </AnimatePresence>
+
+          {/* Guardian Control */}
+          <AnimatePresence>
+            {showGuardianControl && (
+              <GuardianControlView 
+                onBack={() => setShowGuardianControl(false)}
               />
             )}
           </AnimatePresence>

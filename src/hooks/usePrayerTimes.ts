@@ -54,17 +54,20 @@ const BENGALI_HIJRI_MONTHS = [
 
 export function usePrayerTimes(latitude: number | null, longitude: number | null) {
   const getStoredMadhab = () => localStorage.getItem('islamic_app_madhab') || 'Shafi';
+  const getStoredCalcMethod = () => localStorage.getItem('islamic_app_calc_method') || 'Karachi';
 
   const [data, setData] = useState<DayData[] | null>(() => {
     const saved = localStorage.getItem('prayerTimesCache');
     const savedCoords = localStorage.getItem('prayerTimesCoords');
     const savedMonth = localStorage.getItem('prayerTimesMonth');
     const savedMadhab = localStorage.getItem('prayerTimesMadhabCache');
+    const savedCalc = localStorage.getItem('prayerTimesCalcCache');
     const now = new Date();
     const currentMonth = `${now.getFullYear()}-${now.getMonth() + 1}`;
     const currentMadhab = getStoredMadhab();
+    const currentCalc = getStoredCalcMethod();
 
-    if (saved && savedCoords && savedMonth === currentMonth && savedMadhab === currentMadhab) {
+    if (saved && savedCoords && savedMonth === currentMonth && savedMadhab === currentMadhab && savedCalc === currentCalc) {
       const coords = JSON.parse(savedCoords);
       if (latitude && longitude && 
           Math.abs(coords.lat - latitude) < 0.01 && 
@@ -90,14 +93,24 @@ export function usePrayerTimes(latitude: number | null, longitude: number | null
         const month = now.getMonth(); // 0-11
         const currentMonth = `${year}-${month + 1}`;
         const userMadhab = getStoredMadhab();
+        const userCalcOption = getStoredCalcMethod();
         
-        if (data && localStorage.getItem('prayerTimesMonth') === currentMonth && localStorage.getItem('prayerTimesMadhabCache') === userMadhab) {
+        if (data && localStorage.getItem('prayerTimesMonth') === currentMonth && localStorage.getItem('prayerTimesMadhabCache') === userMadhab && localStorage.getItem('prayerTimesCalcCache') === userCalcOption) {
           setLoading(false);
           return;
         }
 
         const coords = new Coordinates(latitude, longitude);
-        const params = CalculationMethod.Karachi();
+        let params;
+        switch (userCalcOption) {
+          case 'Muslim World League': params = CalculationMethod.MuslimWorldLeague(); break;
+          case 'Islamic Society of North America': params = CalculationMethod.NorthAmerica(); break;
+          case 'Egyptian General Authority of Survey': params = CalculationMethod.Egyptian(); break;
+          case 'Umm Al-Qura University, Makkah': params = CalculationMethod.UmmAlQura(); break;
+          case 'Institute of Geophysics, University of Tehran': params = CalculationMethod.Tehran(); break;
+          case 'Shia Ithna-Ashari, Leva Institute, Qum': params = CalculationMethod.MoonsightingCommittee(); break;
+          default: params = CalculationMethod.Karachi(); break;
+        }
         params.madhab = userMadhab === 'Hanafi' ? Madhab.Hanafi : Madhab.Shafi;
         
         const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -147,6 +160,7 @@ export function usePrayerTimes(latitude: number | null, longitude: number | null
         localStorage.setItem('prayerTimesCoords', JSON.stringify({ lat: latitude, lon: longitude }));
         localStorage.setItem('prayerTimesMonth', currentMonth);
         localStorage.setItem('prayerTimesMadhabCache', userMadhab);
+        localStorage.setItem('prayerTimesCalcCache', userCalcOption);
         setError(null);
       } catch (err) {
         console.error('Error calculating prayer times:', err);
@@ -159,18 +173,21 @@ export function usePrayerTimes(latitude: number | null, longitude: number | null
     calculateTimes();
 
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'islamic_app_madhab') {
+      if (e.key === 'islamic_app_madhab' || e.key === 'islamic_app_calc_method') {
         calculateTimes();
       }
     };
     window.addEventListener('storage', handleStorageChange);
     // Add custom event listener for in-app changes
     const handleMadhabChange = () => calculateTimes();
+    const handleCalcChange = () => calculateTimes();
     window.addEventListener('madhab-changed', handleMadhabChange);
+    window.addEventListener('calc-changed', handleCalcChange);
 
     return () => {
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('madhab-changed', handleMadhabChange);
+      window.removeEventListener('calc-changed', handleCalcChange);
     };
   }, [latitude, longitude]);
 

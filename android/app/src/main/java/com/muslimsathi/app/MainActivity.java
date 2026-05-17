@@ -8,6 +8,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(AppUsagePlugin.class);
+        registerPlugin(PrayerAutoSilentPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }

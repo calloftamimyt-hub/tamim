@@ -181,6 +181,10 @@ export function SettingsView({ onBack }: SettingsProps) {
       localStorage.setItem('islamic_app_madhab', value);
       window.dispatchEvent(new Event('madhab-changed'));
       setSettings(prev => ({ ...prev, [id]: value }));
+    } else if (id === 'calc-selection') {
+      localStorage.setItem('islamic_app_calc_method', value);
+      window.dispatchEvent(new Event('calc-changed'));
+      setSettings(prev => ({ ...prev, [id]: value }));
     } else {
       setSettings(prev => ({ ...prev, [id]: value }));
     }
@@ -244,6 +248,21 @@ export function SettingsView({ onBack }: SettingsProps) {
           type: 'select', 
           options: ['Hanafi', 'Maliki', 'Shafi', 'Hanbali'],
           value: localStorage.getItem('islamic_app_madhab') || 'Shafi'
+        },
+        { 
+          id: 'calc-selection', 
+          label: 'ক্যালকুলেশন পদ্ধতি (Calculation Method)', 
+          type: 'select', 
+          options: [
+            'University of Islamic Sciences, Karachi',
+            'Muslim World League',
+            'Islamic Society of North America',
+            'Umm Al-Qura University, Makkah',
+            'Egyptian General Authority of Survey',
+            'Institute of Geophysics, University of Tehran',
+            'Shia Ithna-Ashari, Leva Institute, Qum'
+          ],
+          value: localStorage.getItem('islamic_app_calc_method') || 'University of Islamic Sciences, Karachi'
         },
       ]
     },

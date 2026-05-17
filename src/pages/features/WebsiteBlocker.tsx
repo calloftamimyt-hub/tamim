@@ -89,8 +89,8 @@ export function WebsiteBlocker({ onBack, language }: WebsiteBlockerProps) {
   };
 
   return (
-    <div className="absolute inset-0 z-50 bg-slate-50 dark:bg-slate-950 flex flex-col h-full overflow-hidden">
-      <header className="flex items-center justify-between p-4 pt-safe bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shrink-0">
+    <div className="absolute inset-0 z-50 bg-white dark:bg-slate-900 flex flex-col h-full overflow-hidden">
+      <header className="flex items-center justify-between p-4 pt-safe border-b border-slate-100 dark:border-slate-800 shrink-0">
         <button 
           onClick={onBack}
           className="p-2 -ml-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
@@ -104,38 +104,40 @@ export function WebsiteBlocker({ onBack, language }: WebsiteBlockerProps) {
         <div className="w-10"></div>
       </header>
       
-      <div className="flex-1 overflow-y-auto p-4 content-area space-y-4">
-        <div className="bg-amber-50 dark:bg-amber-900/20 p-4 rounded-2xl border border-amber-100 dark:border-amber-800/30 flex gap-3 text-amber-800 dark:text-amber-200 text-sm">
-          <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
-          <p>
-            {language === 'bn' 
-              ? 'খারাপ বা ক্ষতিকারক ওয়েবসাইটগুলোর লিংক নিচে যোগ করুন। ব্যবহারকারী এই ওয়েবসাইটগুলো ব্রাউজারে খোলার চেষ্টা করলে স্বয়ংক্রিয়ভাবে ব্লক হয়ে যাবে।' 
-              : 'Add links to bad or harmful websites below. If a user tries to open them in a browser, they will automatically be blocked.'}
-          </p>
+      <div className="flex-1 overflow-y-auto content-area">
+        <div className="p-4 border-b border-slate-100 dark:border-slate-800">
+          <div className="bg-amber-50 dark:bg-amber-900/20 p-4 rounded-2xl border border-amber-100 dark:border-amber-800/30 flex gap-3 text-amber-800 dark:text-amber-200 text-sm mb-4">
+            <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+            <p>
+              {language === 'bn' 
+                ? 'খারাপ বা ক্ষতিকারক ওয়েবসাইটগুলোর লিংক নিচে যোগ করুন। ব্যবহারকারী এই ওয়েবসাইটগুলো ব্রাউজারে খোলার চেষ্টা করলে স্বয়ংক্রিয়ভাবে ব্লক হয়ে যাবে।' 
+                : 'Add links to bad or harmful websites below. If a user tries to open them in a browser, they will automatically be blocked.'}
+            </p>
+          </div>
+
+          <form onSubmit={handleAddWebsite} className="flex gap-2">
+            <div className="relative flex-1">
+              <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+              <input 
+                type="text" 
+                value={newWebsite}
+                onChange={(e) => setNewWebsite(e.target.value)}
+                placeholder={language === 'bn' ? 'উদাহরণ: badwebsite.com' : 'Example: badwebsite.com'}
+                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl py-3 pl-10 pr-4 text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+              />
+            </div>
+            <button 
+              type="submit"
+              disabled={!newWebsite.trim()}
+              className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:hover:bg-indigo-600 text-white p-3 rounded-xl transition-colors shrink-0 flex items-center justify-center"
+            >
+              <Plus className="w-6 h-6" />
+            </button>
+          </form>
         </div>
 
-        <form onSubmit={handleAddWebsite} className="flex gap-2">
-          <div className="relative flex-1">
-            <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-            <input 
-              type="text" 
-              value={newWebsite}
-              onChange={(e) => setNewWebsite(e.target.value)}
-              placeholder={language === 'bn' ? 'উদাহরণ: badwebsite.com' : 'Example: badwebsite.com'}
-              className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl py-3 pl-10 pr-4 text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
-            />
-          </div>
-          <button 
-            type="submit"
-            disabled={!newWebsite.trim()}
-            className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:hover:bg-indigo-600 text-white p-3 rounded-xl transition-colors shrink-0 flex items-center justify-center"
-          >
-            <Plus className="w-6 h-6" />
-          </button>
-        </form>
-
-        <div className="space-y-3 mt-4 text-left">
-          <h2 className="text-sm font-bold text-slate-500 uppercase tracking-wider mx-1">
+        <div className="mt-4 text-left">
+          <h2 className="text-sm font-bold text-slate-500 uppercase tracking-wider mx-5 mb-3">
             {language === 'bn' ? 'ব্লক করা ওয়েবসাইটসমূহ' : 'Blocked Websites'}
           </h2>
           
@@ -144,35 +146,37 @@ export function WebsiteBlocker({ onBack, language }: WebsiteBlockerProps) {
               <div className="animate-spin w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full mx-auto" />
             </div>
           ) : blockedWebsites.length === 0 ? (
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 border-dashed rounded-2xl p-8 text-center text-slate-500">
+            <div className="mx-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 border-dashed rounded-2xl p-8 text-center text-slate-500">
               {language === 'bn' ? 'কোনো ওয়েবসাইট ব্লক করা হয়নি' : 'No websites blocked yet'}
             </div>
           ) : (
-            blockedWebsites.map((url, index) => (
-              <motion.div 
-                key={url}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.05 }}
-                className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-between"
-              >
-                <div className="flex items-center gap-3 overflow-hidden">
-                  <div className="p-2 shrink-0 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500">
-                    <Shield className="w-4 h-4" />
-                  </div>
-                  <p className="font-medium text-slate-800 dark:text-slate-200 truncate pr-4">
-                    {url}
-                  </p>
-                </div>
-                
-                <button
-                  onClick={() => handleRemoveWebsite(url)}
-                  className="p-2 shrink-0 text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-full transition-colors"
+            <div className="pb-8">
+              {blockedWebsites.map((url, index) => (
+                <motion.div 
+                  key={url}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.05 }}
+                  className={`p-4 flex items-center justify-between ${index !== blockedWebsites.length - 1 ? 'border-b border-slate-100 dark:border-slate-800' : ''}`}
                 >
-                  <Trash2 className="w-5 h-5" />
-                </button>
-              </motion.div>
-            ))
+                  <div className="flex items-center gap-4 overflow-hidden">
+                    <div className="w-12 h-12 rounded-xl border border-slate-100 dark:border-slate-800 overflow-hidden flex items-center justify-center shrink-0 bg-slate-50 dark:bg-slate-800 text-slate-500">
+                      <Shield className="w-5 h-5" />
+                    </div>
+                    <p className="font-medium text-slate-800 dark:text-slate-200 truncate pr-4 text-base">
+                      {url}
+                    </p>
+                  </div>
+                  
+                  <button
+                    onClick={() => handleRemoveWebsite(url)}
+                    className="p-2 shrink-0 text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-full transition-colors"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                </motion.div>
+              ))}
+            </div>
           )}
         </div>
       </div>
