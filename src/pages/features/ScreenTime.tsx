@@ -127,6 +127,7 @@ export function ScreenTime({ onBack, language }: ScreenTimeProps) {
                 color,
                 progressColor: pColor,
                 icon,
+                iconBase64: s.iconBase64,
                 category: cat,
                 timeInMs: s.timeInMs
              };
@@ -172,8 +173,8 @@ export function ScreenTime({ onBack, language }: ScreenTimeProps) {
     : (filter === 'today' ? "2h 25m" : filter === 'yesterday' ? "3h 10m" : filter === 'days7' ? "32h 15m" : "14h 50m");
 
   return (
-    <div className="absolute inset-0 z-50 bg-slate-50 dark:bg-slate-950 flex flex-col h-full overflow-hidden">
-      <header className="flex items-center justify-between p-4 pt-safe bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shrink-0">
+    <div className="absolute inset-0 z-50 bg-white dark:bg-slate-900 flex flex-col h-full overflow-hidden">
+      <header className="flex items-center justify-between p-4 pt-safe border-b border-slate-100 dark:border-slate-800 shrink-0">
         <button 
           onClick={onBack}
           className="p-2 -ml-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
@@ -186,13 +187,13 @@ export function ScreenTime({ onBack, language }: ScreenTimeProps) {
         <div className="w-10"></div>
       </header>
 
-      <div className="flex-1 overflow-y-auto p-4 content-area space-y-4">
+      <div className="flex-1 overflow-y-auto content-area">
         {/* Filters */}
-        <div className="flex gap-3 text-sm relative z-20">
+        <div className="flex gap-3 text-sm relative z-20 p-4 border-b border-slate-100 dark:border-slate-800">
           <div className="relative flex-1">
             <button 
               onClick={() => {setShowFilterMenu(!showFilterMenu); setShowCategoryMenu(false);}}
-              className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 px-4 py-2.5 rounded-xl text-slate-700 dark:text-slate-300 font-medium flex items-center justify-between shadow-sm"
+              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 px-4 py-2.5 rounded-xl text-slate-700 dark:text-slate-300 font-medium flex items-center justify-between"
             >
               <span className="truncate">
                 {filter === 'today' ? (language === 'bn' ? 'আজ' : 'Today') : 
@@ -229,7 +230,7 @@ export function ScreenTime({ onBack, language }: ScreenTimeProps) {
           <div className="relative flex-1">
             <button 
               onClick={() => {setShowCategoryMenu(!showCategoryMenu); setShowFilterMenu(false);}}
-              className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 px-4 py-2.5 rounded-xl text-slate-700 dark:text-slate-300 font-medium flex items-center justify-between shadow-sm"
+              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 px-4 py-2.5 rounded-xl text-slate-700 dark:text-slate-300 font-medium flex items-center justify-between"
             >
               <span className="truncate">
                 {category === 'all' ? (language === 'bn' ? 'সব ক্যাটাগরি' : 'All Categories') : 
@@ -257,7 +258,7 @@ export function ScreenTime({ onBack, language }: ScreenTimeProps) {
         </div>
 
         {/* Chart Card */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 shadow-sm">
+        <div className="p-5 border-b border-slate-100 dark:border-slate-800">
           <div className="flex justify-between items-start mb-6">
             <div>
               <h2 className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">{totalTime}</h2>
@@ -303,17 +304,21 @@ export function ScreenTime({ onBack, language }: ScreenTimeProps) {
         </div>
 
         {/* Apps List */}
-        <div className="space-y-3 pb-8">
+        <div className="pb-8">
           {appsToDisplay.map((app, i) => (
             <motion.div 
               key={app.id}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.05 }}
-              className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 flex items-center gap-4 shadow-sm"
+              className={`p-4 flex items-center gap-4 ${i !== appsToDisplay.length - 1 ? 'border-b border-slate-100 dark:border-slate-800' : ''}`}
             >
-              <div className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 ${app.color}`}>
-                {app.icon}
+              <div className={`w-12 h-12 rounded-xl border border-slate-100 dark:border-slate-800 overflow-hidden flex items-center justify-center shrink-0 ${app.iconBase64 ? 'bg-transparent shadow-sm' : app.color}`}>
+                {app.iconBase64 ? (
+                  <img src={`data:image/png;base64,${app.iconBase64}`} alt={app.name} className="w-full h-full object-cover" />
+                ) : (
+                  app.icon
+                )}
               </div>
               
               <div className="flex-1 min-w-0">

@@ -10,6 +10,13 @@ import android.content.pm.PackageManager;
 import android.provider.Settings;
 import android.util.Log;
 
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.graphics.drawable.BitmapDrawable;
+import android.graphics.drawable.Drawable;
+import android.util.Base64;
+import java.io.ByteArrayOutputStream;
+
 import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
@@ -104,6 +111,14 @@ public class AppUsagePlugin extends Plugin {
                         appObj.put("name", appName);
                         appObj.put("timeInMs", timeInForeground);
                         
+                        try {
+                            Drawable icon = pm.getApplicationIcon(appInfo);
+                            String iconBase64 = drawableToBase64(icon);
+                            if (iconBase64 != null) {
+                                appObj.put("iconBase64", iconBase64);
+                            }
+                        } catch (Exception e) {}
+                        
                         appsArray.put(appObj);
                     } catch (PackageManager.NameNotFoundException e) {
                         // Ignore
@@ -117,6 +132,41 @@ public class AppUsagePlugin extends Plugin {
         call.resolve(ret);
     }
     
+    private String drawableToBase64(Drawable drawable) {
+        if (drawable == null) return null;
+        Bitmap bitmap = null;
+        if (drawable instanceof BitmapDrawable) {
+            BitmapDrawable bitmapDrawable = (BitmapDrawable) drawable;
+            if (bitmapDrawable.getBitmap() != null) {
+                bitmap = bitmapDrawable.getBitmap();
+            }
+        }
+        if (bitmap == null) {
+            if (drawable.getIntrinsicWidth() <= 0 || drawable.getIntrinsicHeight() <= 0) {
+                bitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888);
+            } else {
+                bitmap = Bitmap.createBitmap(drawable.getIntrinsicWidth(), drawable.getIntrinsicHeight(), Bitmap.Config.ARGB_8888);
+            }
+            Canvas canvas = new Canvas(bitmap);
+            drawable.setBounds(0, 0, canvas.getWidth(), canvas.getHeight());
+            drawable.draw(canvas);
+        }
+        
+        int maxWidth = 96;
+        int maxHeight = 96;
+        if (bitmap.getWidth() > maxWidth || bitmap.getHeight() > maxHeight) {
+            float ratio = Math.min((float) maxWidth / bitmap.getWidth(), (float) maxHeight / bitmap.getHeight());
+            int width = Math.round(ratio * bitmap.getWidth());
+            int height = Math.round(ratio * bitmap.getHeight());
+            bitmap = Bitmap.createScaledBitmap(bitmap, width, height, true);
+        }
+        
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        bitmap.compress(Bitmap.CompressFormat.PNG, 100, outputStream);
+        byte[] byteArray = outputStream.toByteArray();
+        return Base64.encodeToString(byteArray, Base64.NO_WRAP);
+    }
+
     @PluginMethod
     public void openAccessibilitySettings(PluginCall call) {
         Intent intent = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
