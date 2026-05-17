@@ -2,6 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ArrowLeft, Shield, Globe, AlertCircle, Settings, X, Plus, Trash2 } from 'lucide-react';
 import { Preferences } from '@capacitor/preferences';
+import { Capacitor } from '@capacitor/core';
+import { AppUsagePlugin } from './ScreenTime';
+import { registerPlugin } from '@capacitor/core';
+
+const AppUsage = registerPlugin<AppUsagePlugin>('AppUsage');
 
 interface WebsiteBlockerProps {
   onBack: () => void;
@@ -69,10 +74,18 @@ export function WebsiteBlocker({ onBack, language }: WebsiteBlockerProps) {
     saveSettings(updatedWebsites);
   };
 
-  const confirmAccess = () => {
+  const confirmAccess = async () => {
     setShowAccessibilityPopup(false);
-    // Open accessibility settings using Android intent
-    window.location.href = "intent:#Intent;action=android.settings.ACCESSIBILITY_SETTINGS;end";
+    
+    if (Capacitor.isNativePlatform()) {
+       try {
+          await AppUsage.openAccessibilitySettings();
+       } catch (e) {
+          window.location.href = "intent:#Intent;action=android.settings.ACCESSIBILITY_SETTINGS;end";
+       }
+    } else {
+       window.location.href = "intent:#Intent;action=android.settings.ACCESSIBILITY_SETTINGS;end";
+    }
   };
 
   return (

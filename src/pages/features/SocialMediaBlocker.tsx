@@ -3,6 +3,11 @@ import { motion } from 'motion/react';
 import { ArrowLeft, Shield, Video, MessageCircle, Send, TrendingUp, AlertCircle, Settings, X } from 'lucide-react';
 import { Preferences } from '@capacitor/preferences';
 import { AnimatePresence } from 'motion/react';
+import { Capacitor } from '@capacitor/core';
+import { AppUsagePlugin } from './ScreenTime';
+import { registerPlugin } from '@capacitor/core';
+
+const AppUsage = registerPlugin<AppUsagePlugin>('AppUsage');
 
 interface SocialMediaBlockerProps {
   onBack: () => void;
@@ -89,13 +94,20 @@ export function SocialMediaBlocker({ onBack, language }: SocialMediaBlockerProps
     }
   };
 
-  const confirmBlock = () => {
+  const confirmBlock = async () => {
     if (pendingApp) {
       toggleBlock(pendingApp.id, pendingApp.packageName, pendingApp.action, true);
     }
     
-    // Open accessibility settings using Android intent
-    window.location.href = "intent:#Intent;action=android.settings.ACCESSIBILITY_SETTINGS;end";
+    if (Capacitor.isNativePlatform()) {
+       try {
+          await AppUsage.openAccessibilitySettings();
+       } catch (e) {
+          window.location.href = "intent:#Intent;action=android.settings.ACCESSIBILITY_SETTINGS;end";
+       }
+    } else {
+       window.location.href = "intent:#Intent;action=android.settings.ACCESSIBILITY_SETTINGS;end";
+    }
     
     setShowAccessibilityPopup(false);
     setPendingApp(null);

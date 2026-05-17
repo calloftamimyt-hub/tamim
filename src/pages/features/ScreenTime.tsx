@@ -2,6 +2,17 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ArrowLeft, Clock, Globe, Video, MessageCircle, PlaySquare, Settings, Smartphone, ChevronDown, BarChart2, Activity, Settings as SettingsIcon, X } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { registerPlugin } from '@capacitor/core';
+import { Capacitor } from '@capacitor/core';
+
+// Define the Capacitor Plugin interface
+export interface AppUsagePlugin {
+  checkUsagePermission(): Promise<{ granted: boolean }>;
+  requestUsagePermission(): Promise<void>;
+  getUsageStats(options: { filter: string }): Promise<{ stats: any[] }>;
+  openAccessibilitySettings(): Promise<void>;
+}
+const AppUsage = registerPlugin<AppUsagePlugin>('AppUsage');
 
 interface ScreenTimeProps {
   onBack: () => void;
@@ -33,14 +44,23 @@ const allChartData = {
 };
 
 const mockAppsData = [
-  { id: 'tiktok', name: 'TikTok', time: '55m 31s', percentage: 38.1, color: 'bg-black dark:bg-white', progressColor: 'bg-orange-500', icon: <PlaySquare className="w-6 h-6 text-white dark:text-black" />, category: 'social' },
-  { id: 'chrome', name: 'Chrome', time: '21m 43s', percentage: 14.9, color: 'bg-white border border-slate-200', progressColor: 'bg-indigo-500', icon: <Globe className="w-6 h-6 text-blue-500" />, category: 'other' },
-  { id: 'clock', name: 'Clock', time: '19m 18s', percentage: 13.2, color: 'bg-slate-100', progressColor: 'bg-indigo-600', icon: <Clock className="w-6 h-6 text-slate-700" />, category: 'other' },
-  { id: 'imo', name: 'imo', time: '12m 49s', percentage: 8.8, color: 'bg-blue-50', progressColor: 'bg-blue-500', icon: <MessageCircle className="w-6 h-6 text-blue-600" />, category: 'social' },
-  { id: 'google', name: 'Google', time: '9m 55s', percentage: 6.8, color: 'bg-white border border-slate-200', progressColor: 'bg-indigo-500', icon: <Settings className="w-6 h-6 text-slate-600" />, category: 'other' },
-  { id: 'youtube', name: 'YouTube', time: '8m 47s', percentage: 5.5, color: 'bg-red-50', progressColor: 'bg-red-500', icon: <Video className="w-6 h-6 text-red-600" />, category: 'social' },
-  { id: 'facebook', name: 'Facebook', time: '5m 12s', percentage: 3.2, color: 'bg-blue-50', progressColor: 'bg-blue-600', icon: <MessageCircle className="w-6 h-6 text-blue-600" />, category: 'social' },
+  { id: 'tiktok', name: 'TikTok', time: '55m 31s', percentage: 38.1, color: 'bg-black dark:bg-white', progressColor: 'bg-orange-500', icon: <PlaySquare className="w-6 h-6 text-white dark:text-black" />, category: 'social', timeInMs: 3331000 },
+  { id: 'chrome', name: 'Chrome', time: '21m 43s', percentage: 14.9, color: 'bg-white border border-slate-200', progressColor: 'bg-indigo-500', icon: <Globe className="w-6 h-6 text-blue-500" />, category: 'other', timeInMs: 1303000 },
+  { id: 'clock', name: 'Clock', time: '19m 18s', percentage: 13.2, color: 'bg-slate-100', progressColor: 'bg-indigo-600', icon: <Clock className="w-6 h-6 text-slate-700" />, category: 'other', timeInMs: 1158000 },
+  { id: 'imo', name: 'imo', time: '12m 49s', percentage: 8.8, color: 'bg-blue-50', progressColor: 'bg-blue-500', icon: <MessageCircle className="w-6 h-6 text-blue-600" />, category: 'social', timeInMs: 769000 },
+  { id: 'google', name: 'Google', time: '9m 55s', percentage: 6.8, color: 'bg-white border border-slate-200', progressColor: 'bg-indigo-500', icon: <Settings className="w-6 h-6 text-slate-600" />, category: 'other', timeInMs: 595000 },
+  { id: 'youtube', name: 'YouTube', time: '8m 47s', percentage: 5.5, color: 'bg-red-50', progressColor: 'bg-red-500', icon: <Video className="w-6 h-6 text-red-600" />, category: 'social', timeInMs: 527000 },
+  { id: 'facebook', name: 'Facebook', time: '5m 12s', percentage: 3.2, color: 'bg-blue-50', progressColor: 'bg-blue-600', icon: <MessageCircle className="w-6 h-6 text-blue-600" />, category: 'social', timeInMs: 312000 },
 ];
+
+function formatTime(ms: number) {
+  const totalSeconds = Math.floor(ms / 1000);
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = totalSeconds % 60;
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m ${s}s`;
+}
 
 export function ScreenTime({ onBack, language }: ScreenTimeProps) {
   const [filter, setFilter] = useState('today');
@@ -50,36 +70,106 @@ export function ScreenTime({ onBack, language }: ScreenTimeProps) {
   const [showCategoryMenu, setShowCategoryMenu] = useState(false);
   
   const [hasPermission, setHasPermission] = useState(false);
+  const [realAppsData, setRealAppsData] = useState<any[]>([]);
 
   useEffect(() => {
-    // In a real Android app, you would check for ACTION_USAGE_ACCESS_SETTINGS permission here.
-    // If not granted, we show the permission prompt.
-    setHasPermission(false);
+    checkPermission();
   }, []);
+  
+  useEffect(() => {
+    if (hasPermission) {
+      loadRealData();
+    }
+  }, [hasPermission, filter]);
 
-  const requestPermission = () => {
-    // Android Implementation Note for App Usage Stats:
-    // -------------------------------------------------------------
-    // You need to add to AndroidManifest.xml:
-    // <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" tools:ignore="ProtectedPermissions"/>
-    // 
-    // And to check/request:
-    // Intent intent = new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS);
-    // startActivity(intent);
-    
-    window.location.href = "intent:#Intent;action=android.settings.USAGE_ACCESS_SETTINGS;end";
-    setHasPermission(true);
+  const checkPermission = async () => {
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const { granted } = await AppUsage.checkUsagePermission();
+        setHasPermission(granted);
+      } catch (e) {
+        console.error("Plugin not available", e);
+        setHasPermission(false);
+      }
+    } else {
+      // Not native platform, use mock data
+      setHasPermission(true); 
+    }
+  };
+
+  const loadRealData = async () => {
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const res = await AppUsage.getUsageStats({ filter });
+        if (res.stats && Array.isArray(res.stats)) {
+          // Process and map stats
+          let totalMs = 0;
+          res.stats.forEach(s => {
+             totalMs += s.timeInMs;
+          });
+          
+          const mapped = res.stats.map(s => {
+             let cat = 'other';
+             let icon = <Smartphone className="w-6 h-6 text-slate-500" />;
+             let color = 'bg-slate-100';
+             let pColor = 'bg-slate-400';
+             
+             if (s.packageName.includes('youtube')) { cat = 'social'; icon = <Video className="w-6 h-6 text-red-600" />; color = 'bg-red-50'; pColor = 'bg-red-500'; }
+             else if (s.packageName.includes('facebook') || s.packageName.includes('meta')) { cat = 'social'; icon = <MessageCircle className="w-6 h-6 text-blue-600" />; color = 'bg-blue-50'; pColor = 'bg-blue-600'; }
+             else if (s.packageName.includes('tiktok')) { cat = 'social'; icon = <PlaySquare className="w-6 h-6 text-black dark:text-white" />; color = 'bg-white border border-slate-200'; pColor = 'bg-black dark:bg-white'; }
+             else if (s.packageName.includes('chrome')) { icon = <Globe className="w-6 h-6 text-blue-500" />; color = 'bg-blue-50'; pColor = 'bg-indigo-500'; }
+             
+             return {
+                id: s.packageName,
+                name: s.name,
+                time: formatTime(s.timeInMs),
+                percentage: totalMs > 0 ? Number(((s.timeInMs / totalMs) * 100).toFixed(1)) : 0,
+                color,
+                progressColor: pColor,
+                icon,
+                category: cat,
+                timeInMs: s.timeInMs
+             };
+          });
+          
+          mapped.sort((a,b) => b.timeInMs - a.timeInMs);
+          setRealAppsData(mapped);
+        }
+      } catch(e) {
+        console.error(e);
+      }
+    }
+  };
+
+  const requestPermission = async () => {
+    if (Capacitor.isNativePlatform()) {
+      try {
+        await AppUsage.requestUsagePermission();
+        // The user will come back to the app later, we can't await settings easily
+        // but we assume they might grant it. You might periodically check when resuming.
+        setTimeout(() => checkPermission(), 3000);
+      } catch (e) {
+        window.location.href = "intent:#Intent;action=android.settings.USAGE_ACCESS_SETTINGS;end";
+      }
+    } else {
+      window.location.href = "intent:#Intent;action=android.settings.USAGE_ACCESS_SETTINGS;end";
+    }
   };
 
   const chartData = allChartData[filter as keyof typeof allChartData] || allChartData.today;
   const isHourly = filter === 'today' || filter === 'yesterday';
   
+  const displaySource = realAppsData.length > 0 ? realAppsData : mockAppsData;
   const appsToDisplay = category === 'all' 
-    ? mockAppsData 
-    : mockAppsData.filter(app => app.category === category);
+    ? displaySource 
+    : displaySource.filter(app => app.category === category);
 
-  // Time formatting based on filter (mock)
-  const totalTime = filter === 'today' ? "2h 25m" : filter === 'yesterday' ? "3h 10m" : filter === 'days7' ? "32h 15m" : "14h 50m";
+  let totalMsCalc = 0;
+  displaySource.forEach(a => totalMsCalc += (a.timeInMs || 0));
+  
+  const totalTime = realAppsData.length > 0 
+    ? formatTime(totalMsCalc)
+    : (filter === 'today' ? "2h 25m" : filter === 'yesterday' ? "3h 10m" : filter === 'days7' ? "32h 15m" : "14h 50m");
 
   return (
     <div className="absolute inset-0 z-50 bg-slate-50 dark:bg-slate-950 flex flex-col h-full overflow-hidden">
