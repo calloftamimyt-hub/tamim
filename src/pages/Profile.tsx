@@ -52,6 +52,9 @@ import { useFavorites } from '@/hooks/useFavorites';
 import { DuaView, Dua } from './features/Dua';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { LanguageSelectionView } from './features/LanguageSelectionView';
+import { SocialMediaBlocker } from './features/SocialMediaBlocker';
+import { WebsiteBlocker } from './features/WebsiteBlocker';
+import { ScreenTime } from './features/ScreenTime';
 
 import { getFriendlyErrorMessage } from '@/lib/errorUtils';
 import { checkAndRegisterDevice } from '../lib/device';
@@ -211,6 +214,9 @@ export function Profile({ onNavigate }: { onNavigate?: (tab: string) => void }) 
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const { latitude, longitude, country, city: userLocation, loading: locLoading } = useLocation(language);
   const [showLocationModal, setShowLocationModal] = useState(false);
+  const [showSocialMediaBlocker, setShowSocialMediaBlocker] = useState(false);
+  const [showWebsiteBlocker, setShowWebsiteBlocker] = useState(false);
+  const [showScreenTime, setShowScreenTime] = useState(false);
   const [isVerified, setIsVerified] = useState<boolean | undefined>(undefined);
   const [reportsCount, setReportsCount] = useState(0);
   const [profileIssue, setProfileIssue] = useState("");
@@ -302,7 +308,7 @@ export function Profile({ onNavigate }: { onNavigate?: (tab: string) => void }) 
       showEditProfilePage, showFavoriteDuas, showFavoriteAyats, 
       showFavoriteHadiths, showLanguageModal, showEditProfileModal, 
       showChangePasswordModal, showDeleteModal, 
-      showLocationModal, showReminderModal, showTrackersPage
+      showLocationModal, showReminderModal, showTrackersPage, showSocialMediaBlocker, showWebsiteBlocker, showScreenTime
     ];
     
     const anyModalOpen = modals.some(m => m);
@@ -321,6 +327,9 @@ export function Profile({ onNavigate }: { onNavigate?: (tab: string) => void }) 
         setShowDeleteModal(false);
         setShowLocationModal(false);
         setShowReminderModal(false);
+        setShowSocialMediaBlocker(false);
+        setShowWebsiteBlocker(false);
+        setShowScreenTime(false);
       };
       
       window.addEventListener('popstate', handlePopState);
@@ -330,7 +339,7 @@ export function Profile({ onNavigate }: { onNavigate?: (tab: string) => void }) 
     showEditProfilePage, showFavoriteDuas, showFavoriteAyats, 
     showFavoriteHadiths, showLanguageModal, showEditProfileModal, 
     showChangePasswordModal, showDeleteModal, 
-    showLocationModal, showReminderModal, showTrackersPage
+    showLocationModal, showReminderModal, showTrackersPage, showSocialMediaBlocker, showWebsiteBlocker, showScreenTime
   ]);
 
   useEffect(() => {
@@ -1268,6 +1277,21 @@ export function Profile({ onNavigate }: { onNavigate?: (tab: string) => void }) 
                     title={language === 'bn' ? 'ট্র্যাকার' : 'Tracker'} 
                     onClick={() => setShowTrackersPage(true)}
                   />
+                  <MenuItem 
+                    icon={<Shield className="text-indigo-500" />} 
+                    title={language === 'bn' ? 'সোশ্যাল মিডিয়া ব্লকার' : 'Social Media Blocker'} 
+                    onClick={() => setShowSocialMediaBlocker(true)}
+                  />
+                  <MenuItem 
+                    icon={<Globe className="text-indigo-500" />} 
+                    title={language === 'bn' ? 'ওয়েবসাইট ব্লকার' : 'Website Blocker'} 
+                    onClick={() => setShowWebsiteBlocker(true)}
+                  />
+                  <MenuItem 
+                    icon={<Clock className="text-sky-500" />} 
+                    title={language === 'bn' ? 'স্কিন টাইম' : 'Screen Time'} 
+                    onClick={() => setShowScreenTime(true)}
+                  />
                   <FavoriteItem 
                     icon={<Bookmark className="text-amber-500" />} 
                     title={language === 'bn' ? 'সেভ করা পোস্ট' : 'Saved Posts'} 
@@ -1837,6 +1861,36 @@ export function Profile({ onNavigate }: { onNavigate?: (tab: string) => void }) 
 
                 </div>
               </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Social Media Blocker */}
+          <AnimatePresence>
+            {showSocialMediaBlocker && (
+              <SocialMediaBlocker 
+                language={language}
+                onBack={() => setShowSocialMediaBlocker(false)}
+              />
+            )}
+          </AnimatePresence>
+
+          {/* Website Blocker */}
+          <AnimatePresence>
+            {showWebsiteBlocker && (
+              <WebsiteBlocker 
+                language={language}
+                onBack={() => setShowWebsiteBlocker(false)}
+              />
+            )}
+          </AnimatePresence>
+
+          {/* Screen Time */}
+          <AnimatePresence>
+            {showScreenTime && (
+              <ScreenTime 
+                language={language}
+                onBack={() => setShowScreenTime(false)}
+              />
             )}
           </AnimatePresence>
 

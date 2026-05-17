@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { ArrowLeft, RotateCcw, CheckCircle2, Info } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
+import { showInterstitialAd } from '@/lib/admob';
 
 export function SudokuGame({ onBack }: { onBack: () => void }) {
   const { t } = useLanguage();
@@ -9,13 +10,14 @@ export function SudokuGame({ onBack }: { onBack: () => void }) {
   const [initialGrid, setInitialGrid] = useState<boolean[][]>(Array(9).fill(false).map(() => Array(9).fill(false)));
   const [selectedCell, setSelectedCell] = useState<[number, number] | null>(null);
   const [isComplete, setIsComplete] = useState(false);
+  const [roundsPlayed, setRoundsPlayed] = useState(0);
 
   // Simple initial grid generator (very basic)
   useEffect(() => {
-    generateGame();
+    generateGame(false);
   }, []);
 
-  const generateGame = () => {
+  const generateGame = (incrementRound = true) => {
     const newGrid = Array(9).fill(null).map(() => Array(9).fill(null));
     const fixed = Array(9).fill(false).map(() => Array(9).fill(false));
     
@@ -34,6 +36,16 @@ export function SudokuGame({ onBack }: { onBack: () => void }) {
     setGrid(newGrid);
     setInitialGrid(fixed);
     setIsComplete(false);
+    
+    if (incrementRound) {
+      setRoundsPlayed(prev => {
+        const newRounds = prev + 1;
+        if (newRounds % 5 === 0 && newRounds > 0) {
+          showInterstitialAd(() => {});
+        }
+        return newRounds;
+      });
+    }
   };
 
   const isValid = (g: (number | null)[][], row: number, col: number, val: number) => {
@@ -74,16 +86,25 @@ export function SudokuGame({ onBack }: { onBack: () => void }) {
       }
     }
     setIsComplete(true);
+    setRoundsPlayed(prev => {
+      const newRounds = prev + 1;
+      if (newRounds % 5 === 0 && newRounds > 0) {
+        setTimeout(() => showInterstitialAd(() => {}), 1000);
+      }
+      return newRounds;
+    });
   };
 
   return (
-    <div className="flex-1 w-full max-w-md mx-auto flex flex-col bg-slate-50 dark:bg-slate-950 px-4 pt-safe pb-4 h-full">
+    <div className="flex-1 w-full max-w-md mx-auto flex flex-col bg-slate-50 dark:bg-slate-950 h-full relative">
+      <div className="absolute top-0 left-0 right-0 h-64 bg-gradient-to-b from-yellow-200 to-slate-50 dark:from-yellow-900/30 dark:to-slate-950 opacity-80 pointer-events-none z-0" />
+      <div className="px-4 pt-safe pb-4 flex flex-col h-full relative z-10 w-full">
       <header className="flex items-center justify-between py-4">
         <button onClick={onBack} className="p-2 -ml-2 text-slate-500 hover:text-primary transition-colors">
           <ArrowLeft className="w-6 h-6" />
         </button>
         <h1 className="text-lg font-black text-slate-900 dark:text-white uppercase tracking-widest">{t('sudoku-title')}</h1>
-        <button onClick={generateGame} className="p-2 text-slate-500 hover:text-rose-500 transition-colors">
+        <button onClick={() => generateGame(true)} className="p-2 text-slate-500 hover:text-rose-500 transition-colors">
           <RotateCcw className="w-5 h-5" />
         </button>
       </header>
@@ -139,7 +160,7 @@ export function SudokuGame({ onBack }: { onBack: () => void }) {
             <h4 className="font-black uppercase tracking-wider">{t('well-done') || 'Well Done!'}</h4>
             <p className="text-xs opacity-90">{t('sudoku-desc')}</p>
           </div>
-          <button onClick={generateGame} className="bg-white/20 p-2 rounded-lg"><RotateCcw className="w-5 h-5" /></button>
+          <button onClick={() => generateGame(true)} className="bg-white/20 p-2 rounded-lg"><RotateCcw className="w-5 h-5" /></button>
         </motion.div>
       )}
 
@@ -149,6 +170,7 @@ export function SudokuGame({ onBack }: { onBack: () => void }) {
           {t('sudoku-rules') || 'Sudoku is a logic-based number placement puzzle. The goal is to fill the 9x9 grid so that each row, column, and 3x3 box contains all digits from 1 to 9.'}
         </p>
       </div>
+    </div>
     </div>
   );
 }
