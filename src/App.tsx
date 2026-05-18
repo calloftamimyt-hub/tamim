@@ -313,6 +313,16 @@ export default function App() {
             const geoPerm = await Geolocation.requestPermissions();
             console.log("Geolocation permission status:", geoPerm);
           }, 1000);
+
+          try {
+            const { Camera } = await import("@capacitor/camera");
+            setTimeout(async () => {
+              const camPerm = await Camera.requestPermissions();
+              console.log("Camera & Photo permission status:", camPerm);
+            }, 1500);
+          } catch(err) {
+            console.log("Error requesting camera permissions", err);
+          }
         } catch (err) {
           console.error("Error requesting permissions:", err);
         }
