@@ -144,61 +144,115 @@ export function Layout({ children, activeTab, setActiveTab }: LayoutProps) {
                 const Icon = tab.icon;
                 const isActive = activeTab === tab.id;
 
-                // Colors based on theme
-                const activeColor = "text-primary dark:text-primary-light";
-                const inactiveColor =
-                  "text-slate-500 hover:text-slate-900 dark:hover:text-slate-300";
-
-                const iconClassName = cn("w-6 h-6 transition-all");
-                const labelClassName = cn(
-                  "text-[10px] font-medium transition-all",
-                );
-
                 return (
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
-                    className={cn(
-                      "flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors relative",
-                      isActive ? activeColor : inactiveColor,
-                    )}
+                    className="relative flex flex-col items-center justify-center w-full h-full group outline-none gap-0.5"
+                    style={{ WebkitTapHighlightColor: "transparent" }}
                   >
-                    {tab.id === "profile" &&
-                    user &&
-                    (user.photoURL ||
-                      user.user_metadata?.avatar_url ||
-                      user.user_metadata?.picture) ? (
+                    <motion.div
+                      whileTap={{ scale: 0.85 }}
+                      animate={{ y: 0 }}
+                      transition={{ type: "spring", stiffness: 400, damping: 20 }}
+                      className="relative flex items-center justify-center w-[36px] h-[36px] z-20 rounded-full"
+                    >
+                      {isActive && (
+                        <motion.div
+                          layoutId="nav-bg"
+                          className={cn(
+                            "absolute inset-0 bg-primary shadow-lg shadow-primary/30 rounded-full border-[1px]",
+                            navTheme === "white"
+                              ? "border-white/50"
+                              : "border-white/20 dark:border-slate-800"
+                          )}
+                          transition={{
+                            type: "spring",
+                            stiffness: 400,
+                            damping: 20,
+                          }}
+                        />
+                      )}
+
                       <div
                         className={cn(
-                          "w-6 h-6 rounded-full overflow-hidden border",
+                          "relative z-30 transition-colors duration-300",
                           isActive
-                            ? "border-primary"
-                            : "border-slate-300 dark:border-slate-700",
+                            ? "text-white"
+                            : "text-slate-400 dark:text-slate-500 group-hover:text-primary group-hover:scale-110"
                         )}
                       >
-                        <OfflineImage
-                          src={
-                            (user.photoURL?.startsWith("/")
-                              ? getApiUrl(user.photoURL)
-                              : user.photoURL) ||
-                            ((
-                              user.user_metadata?.avatar_url as string
-                            )?.startsWith("/")
-                              ? getApiUrl(
-                                  user.user_metadata?.avatar_url as string,
-                                )
-                              : user.user_metadata?.avatar_url) ||
-                            user.user_metadata?.picture
-                          }
-                          alt="Profile"
-                          className="w-full h-full object-cover rounded-full"
-                          referrerPolicy="no-referrer"
-                        />
+                        {tab.id === "profile" &&
+                        user &&
+                        (user.photoURL ||
+                          user.user_metadata?.avatar_url ||
+                          user.user_metadata?.picture) ? (
+                          <motion.div
+                            initial={false}
+                            animate={{ scale: isActive ? 1.15 : 1, rotate: isActive ? [0, -10, 10, -5, 5, 0] : 0 }}
+                            transition={{ duration: 0.5 }}
+                            className={cn(
+                              "w-[26px] h-[26px] rounded-full overflow-hidden transition-all duration-300",
+                              isActive
+                                ? "border border-white shadow-sm"
+                                : "border border-slate-300 dark:border-slate-700"
+                            )}
+                          >
+                            <OfflineImage
+                              src={
+                                (user.photoURL?.startsWith("/")
+                                  ? getApiUrl(user.photoURL)
+                                  : user.photoURL) ||
+                                ((
+                                  user.user_metadata?.avatar_url as string
+                                )?.startsWith("/")
+                                  ? getApiUrl(
+                                      user.user_metadata?.avatar_url as string
+                                    )
+                                  : user.user_metadata?.avatar_url) ||
+                                user.user_metadata?.picture
+                              }
+                              alt="Profile"
+                              className="w-full h-full object-cover rounded-full"
+                              referrerPolicy="no-referrer"
+                            />
+                          </motion.div>
+                        ) : (
+                          <motion.div
+                             initial={false}
+                             animate={isActive ? { 
+                               scale: [1, 1.2, 0.9, 1.1, 1],
+                               rotate: [0, -15, 15, -5, 0] 
+                             } : { scale: 1, rotate: 0 }}
+                             transition={{ duration: 0.6, ease: "easeInOut" }}
+                             className="flex items-center justify-center relative w-[24px] h-[24px]"
+                          >
+                            <Icon
+                              className="w-[24px] h-[24px]"
+                              strokeWidth={isActive ? 2.5 : 2}
+                            />
+                            {isActive && (
+                              <motion.div
+                                className="absolute -inset-2 rounded-full border-2 border-white opacity-0 pointer-events-none"
+                                animate={{ scale: [0.8, 1.5], opacity: [0.8, 0] }}
+                                transition={{ duration: 0.6, ease: "easeOut" }}
+                              />
+                            )}
+                          </motion.div>
+                        )}
                       </div>
-                    ) : (
-                      <Icon className={iconClassName} />
-                    )}
-                    <span className={labelClassName}>{tab.label}</span>
+                    </motion.div>
+
+                    <span
+                      className={cn(
+                        "text-[10px] font-medium transition-all duration-300 pointer-events-none mt-1",
+                        isActive
+                          ? "text-primary dark:text-primary-light opacity-100 font-bold"
+                          : "text-slate-400 dark:text-slate-500 opacity-80"
+                      )}
+                    >
+                      {tab.label}
+                    </span>
                   </button>
                 );
               })}
@@ -234,12 +288,19 @@ export function Layout({ children, activeTab, setActiveTab }: LayoutProps) {
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
                     className={cn(
-                      "flex items-center space-x-3 px-3 py-3 rounded-xl transition-colors",
+                      "relative flex items-center space-x-3 px-3 py-3 rounded-xl transition-colors group",
                       isActive
-                        ? "bg-primary/10 text-primary dark:bg-primary-dark/20 dark:text-primary-light"
-                        : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800",
+                        ? "text-primary dark:text-primary-light"
+                        : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
                     )}
                   >
+                    {isActive && (
+                      <motion.div
+                        layoutId="desktop-nav-bg"
+                        className="absolute inset-0 bg-primary/10 dark:bg-primary-dark/20 rounded-xl"
+                        transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                      />
+                    )}
                     {tab.id === "profile" &&
                     user &&
                     (user.photoURL ||
@@ -247,10 +308,10 @@ export function Layout({ children, activeTab, setActiveTab }: LayoutProps) {
                       user.user_metadata?.picture) ? (
                       <div
                         className={cn(
-                          "w-6 h-6 rounded-full overflow-hidden border flex-shrink-0",
+                          "w-6 h-6 rounded-full overflow-hidden border flex-shrink-0 relative z-10 transition-all duration-300",
                           isActive
-                            ? "border-primary"
-                            : "border-slate-300 dark:border-slate-700",
+                            ? "border-primary scale-110"
+                            : "border-slate-300 dark:border-slate-700 group-hover:scale-110"
                         )}
                       >
                         <OfflineImage
@@ -273,9 +334,11 @@ export function Layout({ children, activeTab, setActiveTab }: LayoutProps) {
                         />
                       </div>
                     ) : (
-                      <Icon className="w-6 h-6 flex-shrink-0" />
+                      <div className="relative z-10 flex items-center justify-center">
+                        <Icon className={cn("w-[24px] h-[24px] flex-shrink-0 transition-transform duration-300", isActive ? "scale-110" : "group-hover:scale-110")} strokeWidth={isActive ? 2.5 : 2} />
+                      </div>
                     )}
-                    <span className="hidden lg:block font-medium">
+                    <span className="hidden lg:block font-medium relative z-10">
                       {tab.label}
                     </span>
                   </button>
