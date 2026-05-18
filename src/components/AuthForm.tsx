@@ -198,7 +198,7 @@ export function AuthForm({ initialMode = 'login', onSuccess }: AuthFormProps) {
   };
 
   return (
-    <div className={`w-full min-h-screen flex flex-col max-w-md mx-auto relative overflow-hidden ${showAnimationStep ? 'bg-[#1a1921] px-0 pt-0 justify-start' : 'bg-white dark:bg-slate-950 px-4 py-8 justify-center'}`}>
+    <div className={`w-full min-h-screen flex flex-col max-w-md mx-auto relative overflow-hidden bg-white dark:bg-slate-950 px-0 pt-0 justify-start`}>
       
       {showAnimationStep && (
         <div className="flex-shrink-0 w-full flex flex-col items-center max-w-md mx-auto">

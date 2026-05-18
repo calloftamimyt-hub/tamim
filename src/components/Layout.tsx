@@ -13,8 +13,9 @@ import {
 } from "lucide-react";
 import { cn, getApiUrl } from "@/lib/utils";
 import { motion, AnimatePresence } from "motion/react";
-import { auth } from "../lib/firebase";
+import { auth, db } from "../lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
+import { doc, getDoc } from "firebase/firestore";
 import { useLanguage } from "../contexts/LanguageContext";
 import { OfflineImage } from "./OfflineImage";
 
@@ -26,6 +27,7 @@ interface LayoutProps {
 
 export function Layout({ children, activeTab, setActiveTab }: LayoutProps) {
   const [user, setUser] = useState<any>(null);
+  const [accountType, setAccountType] = useState<string>(() => localStorage.getItem("userAccountType") || "guardian");
   const { language, t } = useLanguage();
   const mainRef = useRef<HTMLElement>(null);
 
@@ -38,8 +40,19 @@ export function Layout({ children, activeTab, setActiveTab }: LayoutProps) {
   }, [activeTab]);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUser(user);
+    const unsubscribe = onAuthStateChanged(auth, async (u) => {
+      setUser(u);
+      if (u) {
+        try {
+          const docRef = doc(db, "users", u.uid);
+          const docSnap = await getDoc(docRef);
+          if (docSnap.exists()) {
+            setAccountType(docSnap.data().accountType || "guardian");
+          }
+        } catch (e) {
+          console.error("Error fetching user data", e);
+        }
+      }
     });
 
     return () => unsubscribe();
@@ -76,7 +89,7 @@ export function Layout({ children, activeTab, setActiveTab }: LayoutProps) {
     };
   }, []);
 
-  const tabs = [
+  const allTabs = [
     { id: "home", label: t("home" as any) || "Home", icon: Home },
     { id: "tools", label: language === "bn" ? "ফিড" : "Feed", icon: Rss },
     { id: "earning", label: t("earning" as any) || "Earning", icon: Wallet },
@@ -92,6 +105,11 @@ export function Layout({ children, activeTab, setActiveTab }: LayoutProps) {
       icon: User,
     },
   ];
+
+  const tabs = allTabs.filter(tab => {
+    if (tab.id === 'earning' && accountType === 'child') return false;
+    return true;
+  });
 
   return (
     <div className="flex flex-col h-[100dvh] bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-50 transition-colors duration-300 overflow-hidden">

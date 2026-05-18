@@ -458,6 +458,9 @@ export default function App() {
           const userDoc = await getDoc(userRef);
           if (userDoc.exists()) {
             const data = userDoc.data();
+            if (data.accountType) {
+              localStorage.setItem("userAccountType", data.accountType);
+            }
             if (data.twoStep?.enabled && data.twoStep?.pin) {
               setExpectedPinBase64(data.twoStep.pin);
               setIsAppLocked(true);
