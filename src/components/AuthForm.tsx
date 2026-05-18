@@ -13,6 +13,10 @@ interface AuthFormProps {
 
 import { WelcomeAnimation } from './WelcomeAnimation';
 import { CyberSecurityAnimation } from './CyberSecurityAnimation';
+import { MobileAnimation } from './MobileAnimation';
+import { PasswordAnimation } from './PasswordAnimation';
+import { ReferralAnimation } from './ReferralAnimation';
+import { LoginAnimation } from './LoginAnimation';
 
 export function AuthForm({ initialMode = 'login', onSuccess }: AuthFormProps) {
   const [mode, setMode] = useState<'login' | 'register'>(initialMode);
@@ -28,6 +32,7 @@ export function AuthForm({ initialMode = 'login', onSuccess }: AuthFormProps) {
     password: '',
     confirmPassword: '',
     referralCodeInput: '',
+    accountType: 'child',
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -53,11 +58,14 @@ export function AuthForm({ initialMode = 'login', onSuccess }: AuthFormProps) {
       }
       if (registerStep === 3) {
         if (!formData.phone.trim()) return setError("Mobile Number is required.");
-        if (formData.password.length < 6) return setError("Password must be at least 6 characters!");
-        if (formData.password !== formData.confirmPassword) return setError("Passwords do not match!");
         return setRegisterStep(4);
       }
       if (registerStep === 4) {
+        if (formData.password.length < 6) return setError("Password must be at least 6 characters!");
+        if (formData.password !== formData.confirmPassword) return setError("Passwords do not match!");
+        return setRegisterStep(5);
+      }
+      if (registerStep === 5) {
         if (!formData.referralCodeInput.trim()) return setError("Referral Code is required.");
         // Proceed to submit
       }
@@ -92,6 +100,7 @@ export function AuthForm({ initialMode = 'login', onSuccess }: AuthFormProps) {
             phoneNumber: formattedPhone,
             email: formData.email.trim(),
             role: 'client',
+            accountType: formData.accountType,
             referralCode: myReferralCode,
             referralCount: 0,
             referredBy: formData.referralCodeInput.trim(),
@@ -160,7 +169,33 @@ export function AuthForm({ initialMode = 'login', onSuccess }: AuthFormProps) {
 
   const isRegisterStep1 = mode === 'register' && registerStep === 1;
   const isRegisterStep2 = mode === 'register' && registerStep === 2;
-  const showAnimationStep = isRegisterStep1 || isRegisterStep2;
+  const isRegisterStep3 = mode === 'register' && registerStep === 3;
+  const isRegisterStep4 = mode === 'register' && registerStep === 4;
+  const isRegisterStep5 = mode === 'register' && registerStep === 5;
+  const showAnimationStep = true;
+
+  const renderAnimation = () => {
+    if (mode === 'login') return <LoginAnimation />;
+    switch (registerStep) {
+      case 1: return <WelcomeAnimation />;
+      case 2: return <CyberSecurityAnimation />;
+      case 3: return <MobileAnimation />;
+      case 4: return <PasswordAnimation />;
+      case 5: return <ReferralAnimation />;
+      default: return null;
+    }
+  };
+
+  const getStepTitle = () => {
+    switch (registerStep) {
+      case 1: return 'Provide your details';
+      case 2: return 'Secure your account';
+      case 3: return 'Verify mobile number';
+      case 4: return 'Set your password';
+      case 5: return 'Referral & Complete';
+      default: return '';
+    }
+  };
 
   return (
     <div className={`w-full min-h-screen flex flex-col max-w-md mx-auto relative overflow-hidden ${showAnimationStep ? 'bg-[#1a1921] px-0 pt-0 justify-start' : 'bg-white dark:bg-slate-950 px-4 py-8 justify-center'}`}>
@@ -169,100 +204,37 @@ export function AuthForm({ initialMode = 'login', onSuccess }: AuthFormProps) {
         <div className="flex-shrink-0 w-full flex flex-col items-center max-w-md mx-auto">
           <div className="w-full h-8 bg-white dark:bg-slate-950 z-[60]" />
           <div className="w-full z-0 pb-8 relative">
-            {isRegisterStep1 ? <WelcomeAnimation /> : <CyberSecurityAnimation />}
+            {renderAnimation()}
           </div>
         </div>
       )}
 
-      <div className={`flex flex-col relative z-20 flex-1 ${showAnimationStep ? 'bg-white dark:bg-slate-950 rounded-2xl rounded-b-none px-6 pt-8 pb-6 -mt-12' : 'min-h-[65vh] shadow-[0_-10px_40px_rgba(0,0,0,0.15)] bg-white dark:bg-slate-950 px-6 pt-8 pb-12'}`}>
+      <div className="flex flex-col relative z-20 flex-1 bg-white dark:bg-slate-950 rounded-2xl rounded-b-none px-6 pt-6 pb-6 -mt-12">
         
-        {!showAnimationStep && (
-          <div className="text-center mb-8 relative z-10 w-full">
-            <AnimatePresence mode="wait">
-              {mode === 'register' ? (
-                <motion.div
-                  key="icon-register"
-                  initial={{ scale: 0, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1, y: [0, -8, 0] }}
-                  exit={{ scale: 0, opacity: 0 }}
-                  transition={{ 
-                    duration: 0.5, 
-                    y: { repeat: Infinity, duration: 4, ease: "easeInOut" }
-                  }}
-                  className="w-24 h-24 mx-auto bg-gradient-to-tr from-primary to-blue-400 rounded-3xl flex items-center justify-center shadow-2xl shadow-primary/40 mb-6 rotate-12"
-                  style={{ transformStyle: 'preserve-3d' }}
-                >
-                  <UserPlus className="w-12 h-12 text-white -rotate-12" style={{ transform: 'translateZ(20px)' }} />
-                </motion.div>
-              ) : (
-                <motion.div
-                  key="icon-login"
-                  initial={{ scale: 0, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1, y: [0, -8, 0] }}
-                  exit={{ scale: 0, opacity: 0 }}
-                  transition={{ 
-                    duration: 0.5, 
-                    y: { repeat: Infinity, duration: 4, ease: "easeInOut" }
-                  }}
-                  className="w-24 h-24 mx-auto bg-gradient-to-tr from-emerald-500 to-teal-400 rounded-3xl flex items-center justify-center shadow-2xl shadow-emerald-500/40 mb-6 -rotate-12"
-                  style={{ transformStyle: 'preserve-3d' }}
-                >
-                  <Lock className="w-12 h-12 text-white rotate-12" style={{ transform: 'translateZ(20px)' }} />
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            <motion.h1 
-              key={`title-${mode}`}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="text-3xl font-bold text-slate-900 dark:text-white mb-2"
-            >
-              {mode === 'login' ? 'Welcome Back' : 'Create Account'}
-            </motion.h1>
-            <motion.p 
-              key={`desc-${mode}`}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
-              className="text-sm text-slate-500 dark:text-slate-400"
-            >
-              {mode === 'login' 
-                ? 'Login with your email and password' 
-                : `Step ${registerStep} of 4: Provide your details`}
-            </motion.p>
+        {mode === 'login' ? (
+          <div className="text-center mb-6 relative z-10 w-full">
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-1 tracking-tight">Welcome Back</h1>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mb-5">Login with your email and password</p>
+            <div className="flex space-x-2 bg-slate-100 dark:bg-slate-900 p-1.5 rounded-xl">
+              <button
+                type="button"
+                className="flex-1 py-2 text-sm font-semibold rounded-lg transition-all duration-300 bg-white dark:bg-slate-800 text-primary dark:text-primary-light shadow-md"
+              >
+                Login
+              </button>
+              <button
+                type="button"
+                onClick={() => { setMode('register'); setError(''); setRegisterStep(1); }}
+                className="flex-1 py-2 text-sm font-semibold rounded-lg transition-all duration-300 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
+              >
+                Registration
+              </button>
+            </div>
           </div>
-        )}
-
-        {showAnimationStep && (
+        ) : (
           <div className="text-center mb-6 relative z-10 w-full">
             <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-1 tracking-tight">Create Account</h1>
-            <p className="text-sm text-slate-500 dark:text-slate-400">Step {registerStep} of 4: {isRegisterStep1 ? 'Provide your details' : 'Secure your account'}</p>
-          </div>
-        )}
-
-        {!showAnimationStep && (
-          <div className="flex space-x-2 mb-6 bg-slate-100 dark:bg-slate-900 p-1.5 rounded-xl z-10 relative">
-            <button
-              onClick={() => { setMode('login'); setError(''); setRegisterStep(1); }}
-              className={`flex-1 py-2.5 text-sm font-semibold rounded-lg transition-all duration-300 ${
-                mode === 'login' 
-                  ? 'bg-white dark:bg-slate-800 text-primary dark:text-primary-light shadow-md scale-100' 
-                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 scale-95 hover:scale-100'
-              }`}
-            >
-              Login
-            </button>
-            <button
-              onClick={() => { setMode('register'); setError(''); setRegisterStep(1); }}
-              className={`flex-1 py-2.5 text-sm font-semibold rounded-lg transition-all duration-300 ${
-                mode === 'register' 
-                  ? 'bg-white dark:bg-slate-800 text-primary dark:text-primary-light shadow-md scale-100' 
-                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 scale-95 hover:scale-100'
-              }`}
-            >
-              Registration
-            </button>
+            <p className="text-sm text-slate-500 dark:text-slate-400">Step {registerStep} of 5: {getStepTitle()}</p>
           </div>
         )}
 
@@ -289,14 +261,13 @@ export function AuthForm({ initialMode = 'login', onSuccess }: AuthFormProps) {
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 ml-1">Email <span className="text-red-500">*</span></label>
                   <div className="relative group">
-                    <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-primary transition-colors" />
                     <input
                       type="email"
                       name="email"
                       required
                       value={formData.email}
                       onChange={handleChange}
-                      className="w-full pl-11 pr-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none dark:text-white transition-all shadow-sm"
+                      className="w-full px-4 py-3 bg-transparent border border-slate-300 dark:border-slate-700 rounded-md text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none dark:text-white transition-all shadow-none"
                       placeholder="your@email.com"
                     />
                   </div>
@@ -305,14 +276,13 @@ export function AuthForm({ initialMode = 'login', onSuccess }: AuthFormProps) {
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 ml-1">Password <span className="text-red-500">*</span></label>
                   <div className="relative group">
-                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-primary transition-colors" />
                     <input
                       type="password"
                       name="password"
                       required
                       value={formData.password}
                       onChange={handleChange}
-                      className="w-full pl-11 pr-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none dark:text-white transition-all shadow-sm"
+                      className="w-full px-4 py-3 bg-transparent border border-slate-300 dark:border-slate-700 rounded-md text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none dark:text-white transition-all shadow-none"
                       placeholder="••••••••"
                     />
                   </div>
@@ -332,7 +302,7 @@ export function AuthForm({ initialMode = 'login', onSuccess }: AuthFormProps) {
                             required
                             value={formData.firstName}
                             onChange={handleChange}
-                            className="w-full px-4 py-3 bg-transparent border border-slate-300 dark:border-slate-700 rounded-xl text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none dark:text-white transition-all shadow-none"
+                            className="w-full px-4 py-3 bg-transparent border border-slate-300 dark:border-slate-700 rounded-md text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none dark:text-white transition-all shadow-none"
                             placeholder="First Name"
                           />
                         </div>
@@ -346,7 +316,7 @@ export function AuthForm({ initialMode = 'login', onSuccess }: AuthFormProps) {
                             required
                             value={formData.lastName}
                             onChange={handleChange}
-                            className="w-full px-4 py-3 bg-transparent border border-slate-300 dark:border-slate-700 rounded-xl text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none dark:text-white transition-all shadow-none"
+                            className="w-full px-4 py-3 bg-transparent border border-slate-300 dark:border-slate-700 rounded-md text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none dark:text-white transition-all shadow-none"
                             placeholder="Last Name"
                           />
                         </div>
@@ -366,7 +336,7 @@ export function AuthForm({ initialMode = 'login', onSuccess }: AuthFormProps) {
                           required
                           value={formData.email}
                           onChange={handleChange}
-                          className="w-full px-4 py-3 bg-transparent border border-slate-300 dark:border-slate-700 rounded-xl text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none dark:text-white transition-all shadow-none"
+                          className="w-full px-4 py-3 bg-transparent border border-slate-300 dark:border-slate-700 rounded-md text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none dark:text-white transition-all shadow-none"
                           placeholder="your@email.com"
                         />
                       </div>
@@ -379,30 +349,32 @@ export function AuthForm({ initialMode = 'login', onSuccess }: AuthFormProps) {
                     <div className="space-y-1.5">
                       <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 ml-1">Mobile Number <span className="text-red-500">*</span></label>
                       <div className="relative group">
-                        <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-primary transition-colors" />
                         <input
                           type="tel"
                           name="phone"
                           required
                           value={formData.phone}
                           onChange={handleChange}
-                          className="w-full pl-11 pr-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none dark:text-white transition-all shadow-sm"
+                          className="w-full px-4 py-3 bg-transparent border border-slate-300 dark:border-slate-700 rounded-md text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none dark:text-white transition-all shadow-none"
                           placeholder="01XXXXXXXXX"
                         />
                       </div>
                     </div>
+                  </>
+                )}
 
+                {registerStep === 4 && (
+                  <>
                     <div className="space-y-1.5">
                       <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 ml-1">Password <span className="text-red-500">*</span></label>
                       <div className="relative group">
-                        <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-primary transition-colors" />
                         <input
                           type="password"
                           name="password"
                           required
                           value={formData.password}
                           onChange={handleChange}
-                          className="w-full pl-11 pr-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none dark:text-white transition-all shadow-sm"
+                          className="w-full px-4 py-3 bg-transparent border border-slate-300 dark:border-slate-700 rounded-md text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none dark:text-white transition-all shadow-none"
                           placeholder="••••••••"
                         />
                       </div>
@@ -411,14 +383,13 @@ export function AuthForm({ initialMode = 'login', onSuccess }: AuthFormProps) {
                     <div className="space-y-1.5">
                       <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 ml-1">Confirm Password <span className="text-red-500">*</span></label>
                       <div className="relative group">
-                        <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-primary transition-colors" />
                         <input
                           type="password"
                           name="confirmPassword"
                           required
                           value={formData.confirmPassword}
                           onChange={handleChange}
-                          className="w-full pl-11 pr-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none dark:text-white transition-all shadow-sm"
+                          className="w-full px-4 py-3 bg-transparent border border-slate-300 dark:border-slate-700 rounded-md text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none dark:text-white transition-all shadow-none"
                           placeholder="••••••••"
                         />
                       </div>
@@ -426,20 +397,41 @@ export function AuthForm({ initialMode = 'login', onSuccess }: AuthFormProps) {
                   </>
                 )}
 
-                {registerStep === 4 && (
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 ml-1">Referral Code <span className="text-red-500">*</span></label>
-                    <div className="relative group">
-                      <Users className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-primary transition-colors" />
-                      <input
-                        type="text"
-                        name="referralCodeInput"
-                        required
-                        value={formData.referralCodeInput}
-                        onChange={handleChange}
-                        className="w-full pl-11 pr-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none dark:text-white transition-all shadow-sm uppercase tracking-wide font-medium"
-                        placeholder="ENTER REFERRAL CODE"
-                      />
+                {registerStep === 5 && (
+                  <div className="space-y-4">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 ml-1">Referral Code <span className="text-red-500">*</span></label>
+                      <div className="relative group">
+                        <input
+                          type="text"
+                          name="referralCodeInput"
+                          required
+                          value={formData.referralCodeInput}
+                          onChange={handleChange}
+                          className="w-full px-4 py-2.5 bg-transparent border border-slate-300 dark:border-slate-700 rounded-md text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none dark:text-white transition-all shadow-none uppercase tracking-wide font-medium"
+                          placeholder="ENTER REFERRAL CODE"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 ml-1">Account Type <span className="text-red-500">*</span></label>
+                      <div className="grid grid-cols-2 gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setFormData({...formData, accountType: 'guardian'})}
+                          className={`py-2.5 text-sm rounded-md font-medium border transition-colors ${formData.accountType === 'guardian' ? 'bg-primary/10 border-primary text-primary' : 'bg-transparent border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-slate-400'}`}
+                        >
+                          Guardian Use
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setFormData({...formData, accountType: 'child'})}
+                          className={`py-2.5 text-sm rounded-md font-medium border transition-colors ${formData.accountType === 'child' ? 'bg-primary/10 border-primary text-primary' : 'bg-transparent border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-slate-400'}`}
+                        >
+                          Child Use
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -448,7 +440,7 @@ export function AuthForm({ initialMode = 'login', onSuccess }: AuthFormProps) {
           </AnimatePresence>
         </div>
 
-        <div className={`flex gap-3 ${showAnimationStep ? 'mt-auto pt-6' : 'mt-6 pt-2'}`}>
+        <div className="flex gap-3 mt-auto pt-6">
           {mode === 'register' && (
             <button
               type="button"
@@ -460,33 +452,33 @@ export function AuthForm({ initialMode = 'login', onSuccess }: AuthFormProps) {
                   setRegisterStep(registerStep - 1); 
                 }
               }}
-              className={`px-4 py-3 bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300 rounded-md hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors flex items-center justify-center font-medium shadow-sm hover:shadow-md ${showAnimationStep ? 'w-28 text-sm' : ''}`}
+              className="w-28 px-4 py-2 bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300 rounded-md hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors flex items-center justify-center font-medium shadow-sm hover:shadow-md text-sm"
             >
-              {showAnimationStep ? 'Cancel' : <ArrowLeft className="w-5 h-5" />}
+              Cancel
             </button>
           )}
 
           <button
             type="submit"
             disabled={loading}
-            className="flex-1 flex items-center justify-center bg-primary text-white px-4 py-3 rounded-md hover:bg-primary-dark transition-all disabled:opacity-70 font-semibold shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/30 active:scale-[0.98]"
+            className="flex-1 flex items-center justify-center bg-primary text-white px-4 py-2 rounded-md hover:bg-primary-dark transition-all disabled:opacity-70 font-semibold shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/30 active:scale-[0.98] text-sm"
           >
             {loading ? (
-              <div className="w-6 h-6 border-[3px] border-white/30 border-t-white rounded-full animate-spin" />
+              <div className="w-5 h-5 border-[2px] border-white/30 border-t-white rounded-full animate-spin" />
             ) : mode === 'login' ? (
               <>
-                <LogIn className="w-5 h-5 mr-2" />
+                <LogIn className="w-4 h-4 mr-2" />
                 Login to Account
               </>
-            ) : registerStep < 4 ? (
+            ) : registerStep < 5 ? (
               <>
                 {showAnimationStep ? 'Next' : 'Continue'}
                 <ArrowRight className={`${showAnimationStep ? 'w-4 h-4' : 'w-5 h-5'} ml-2`} />
               </>
             ) : (
               <>
-                <UserPlus className="w-5 h-5 mr-2" />
-                Complete Registration
+                <UserPlus className="w-4 h-4 mr-2" />
+                Registration
               </>
             )}
           </button>

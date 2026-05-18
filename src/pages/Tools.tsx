@@ -111,6 +111,7 @@ import {
 import { useLanguage } from "@/contexts/LanguageContext";
 import { cn, getApiUrl, formatCount } from "@/lib/utils";
 import { db, auth } from "@/lib/firebase";
+import { onAuthStateChanged } from "firebase/auth";
 import {
   collection,
   query,
@@ -2178,47 +2179,60 @@ function notifyGlobalPreloadListeners() {
 }
 
 try {
-  const q = query(
-    collection(db, "posts"),
-    orderBy("createdAt", "desc"),
-    limit(20),
-  );
-  onSnapshot(
-    q,
-    (snapshot) => {
-      const approvedDocs = snapshot.docs.filter((doc) => {
-        const p = doc.data() as any;
-        return p.status === "approved" || !p.status;
-      });
+  let unsubscribeGlobalSnapshot: () => void = () => {};
 
-      if (approvedDocs.length > 0) {
-        globalLastVisiblePost = approvedDocs[approvedDocs.length - 1];
-      }
+  onAuthStateChanged(auth, (user) => {
+    if (user) {
+      const q = query(
+        collection(db, "posts"),
+        orderBy("createdAt", "desc"),
+        limit(20),
+      );
+      unsubscribeGlobalSnapshot();
+      unsubscribeGlobalSnapshot = onSnapshot(
+        q,
+        (snapshot) => {
+          const approvedDocs = snapshot.docs.filter((doc) => {
+            const p = doc.data() as any;
+            return p.status === "approved" || !p.status;
+          });
 
-      const postsData = approvedDocs.map((doc) => ({ id: doc.id, ...(doc.data() as Record<string, any>) }));
+          if (approvedDocs.length > 0) {
+            globalLastVisiblePost = approvedDocs[approvedDocs.length - 1];
+          }
 
-      const getSortValue = (post: any) => {
-        let hash = 0;
-        for (let i = 0; i < post.id.length; i++) {
-          hash = post.id.charCodeAt(i) + ((hash << 5) - hash);
-        }
-        const time = post.createdAt?.seconds || 0;
-        const randomVariance = Math.abs(hash + globalSessionSalt) % 259200;
-        return time + randomVariance;
-      };
+          const postsData = approvedDocs.map((doc) => ({ id: doc.id, ...(doc.data() as Record<string, any>) }));
 
-      postsData.sort((a, b) => getSortValue(b) - getSortValue(a));
+          const getSortValue = (post: any) => {
+            let hash = 0;
+            for (let i = 0; i < post.id.length; i++) {
+              hash = post.id.charCodeAt(i) + ((hash << 5) - hash);
+            }
+            const time = post.createdAt?.seconds || 0;
+            const randomVariance = Math.abs(hash + globalSessionSalt) % 259200;
+            return time + randomVariance;
+          };
 
-      globalPreloadedPosts = postsData;
+          postsData.sort((a, b) => getSortValue(b) - getSortValue(a));
+
+          globalPreloadedPosts = postsData;
+          globalIsPreloadedPostsLoading = false;
+          notifyGlobalPreloadListeners();
+        },
+        (error) => {
+          console.error("Global Preload Error:", error);
+          globalIsPreloadedPostsLoading = false;
+          notifyGlobalPreloadListeners();
+        },
+      );
+    } else {
+      unsubscribeGlobalSnapshot();
+      globalPreloadedPosts = [];
+      globalLastVisiblePost = null;
       globalIsPreloadedPostsLoading = false;
       notifyGlobalPreloadListeners();
-    },
-    (error) => {
-      console.error("Global Preload Error:", error);
-      globalIsPreloadedPostsLoading = false;
-      notifyGlobalPreloadListeners();
-    },
-  );
+    }
+  });
 } catch (error) {
   console.error("Failed to initialize global feed preloader", error);
 }
