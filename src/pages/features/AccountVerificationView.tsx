@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'motion/react';
-import { ArrowLeft, Play, CheckCircle2, Loader2, ShieldCheck, Star, Award, Crown } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { ArrowLeft, Play, CheckCircle2, XCircle, Loader2, ShieldCheck, Star, Award, Crown, Zap, Check, X } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { cn } from '@/lib/utils';
 import { doc, getDoc, updateDoc, setDoc, serverTimestamp, Timestamp, onSnapshot } from 'firebase/firestore';
@@ -10,6 +10,86 @@ import { showRewardedAd } from '@/lib/admob';
 interface AccountVerificationViewProps {
   onBack: () => void;
 }
+
+export const plans = [
+  {
+    id: 'basic',
+    name: 'Basic Plan',
+    nameBn: 'বেসিক প্ল্যান',
+    gradient: 'from-slate-400 to-slate-500',
+    icon: <ShieldCheck className="w-8 h-8 text-white" />,
+    price: 'Free',
+    priceBn: 'ফ্রি',
+    features: [
+      { id: 'f1', included: true },
+      { id: 'f2', included: true },
+      { id: 'f3', included: true },
+      { id: 'f4', included: false },
+      { id: 'f5', included: false },
+      { id: 'f6', included: false },
+    ]
+  },
+  {
+    id: 'silver',
+    name: 'Silver Plan',
+    nameBn: 'সিলভার প্ল্যান',
+    gradient: 'from-zinc-400 to-slate-600',
+    icon: <Award className="w-8 h-8 text-white" />,
+    price: '50 ৳ / 7 Days',
+    priceBn: '৫০ ৳ / ৭ দিন',
+    features: [
+      { id: 'f1', included: true },
+      { id: 'f2', included: true },
+      { id: 'f3', included: true },
+      { id: 'f4', included: true },
+      { id: 'f5', included: false },
+      { id: 'f6', included: false },
+    ]
+  },
+  {
+    id: 'gold',
+    name: 'Gold Plan',
+    nameBn: 'গোল্ড প্ল্যান',
+    gradient: 'from-amber-400 to-orange-500',
+    icon: <Crown className="w-8 h-8 text-white" />,
+    price: '100 ৳ / 7 Days',
+    priceBn: '১০০ ৳ / ৭ দিন',
+    features: [
+      { id: 'f1', included: true },
+      { id: 'f2', included: true },
+      { id: 'f3', included: true },
+      { id: 'f4', included: true },
+      { id: 'f5', included: true },
+      { id: 'f6', included: false },
+    ]
+  },
+  {
+    id: 'premium',
+    name: 'Premium Plan',
+    nameBn: 'প্রিমিয়াম প্ল্যান',
+    gradient: 'from-purple-500 to-indigo-600',
+    icon: <Zap className="w-8 h-8 text-white" />,
+    price: '200 ৳ / 7 Days',
+    priceBn: '২০০ ৳ / ৭ দিন',
+    features: [
+      { id: 'f1', included: true },
+      { id: 'f2', included: true },
+      { id: 'f3', included: true },
+      { id: 'f4', included: true },
+      { id: 'f5', included: true },
+      { id: 'f6', included: true },
+    ]
+  }
+];
+
+const featureList = [
+  { id: 'f1', label: 'Play Mini Games (Entertainment Only, No Earnings)', labelBn: 'মিনি গেমস খেলুন (শুধু বিনোদনের জন্য, কোনো আয় হবে না)' },
+  { id: 'f2', label: 'Daily Quizzes & Ad Views', labelBn: 'ডেইলি কুইজ এবং বিজ্ঞাপন দেখে আয়' },
+  { id: 'f3', label: 'Standard Profile Status', labelBn: 'স্ট্যান্ডার্ড প্রোফাইল স্ট্যাটাস' },
+  { id: 'f4', label: 'Verified Trust Badge (Blue Tick)', labelBn: 'ভেরিফাইড ট্রাস্ট ব্যাজ (ব্লু টিক)' },
+  { id: 'f5', label: 'Priority Support & Fast Withdraw', labelBn: 'প্রায়োরিটি সাপোর্ট এবং দ্রুত উইথড্র' },
+  { id: 'f6', label: 'Premium Earning Tasks & Unlimited Limits', labelBn: 'প্রিমিয়াম টাস্ক এবং লিমিট ছাড়া আয়' },
+];
 
 export const AccountVerificationView: React.FC<AccountVerificationViewProps> = ({ onBack }) => {
   const { language } = useLanguage();
@@ -21,6 +101,11 @@ export const AccountVerificationView: React.FC<AccountVerificationViewProps> = (
   const [adsWatchedThisSession, setAdsWatchedThisSession] = useState(0);
   const [cooldownUntil, setCooldownUntil] = useState<Date | null>(null);
   const [timeLeft, setTimeLeft] = useState<number>(0);
+  
+  const [selectedPlanId, setSelectedPlanId] = useState<string>('basic');
+  const [currentPlanId, setCurrentPlanId] = useState<string>('basic');
+  const [planExpiresAt, setPlanExpiresAt] = useState<Date | null>(null);
+  const [upgrading, setUpgrading] = useState(false);
 
   // Timer effect for cooldown
   useEffect(() => {
@@ -64,8 +149,20 @@ export const AccountVerificationView: React.FC<AccountVerificationViewProps> = (
     const unsub = onSnapshot(doc(db, 'account_verifications', auth.currentUser.uid), (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
-        setAdsWatched(data.adsWatched || 0);
-        setIsVerified(data.isVerified || false);
+        
+        let verified = data.isVerified || false;
+        let pId = data.planId || 'basic';
+        const pExpiresAt = data.planExpiresAt?.toDate();
+
+        if (verified && pExpiresAt && new Date() > pExpiresAt) {
+          verified = false;
+          pId = 'basic';
+        }
+
+        setAdsWatched(verified ? 0 : (data.adsWatched || 0));
+        setIsVerified(verified);
+        setCurrentPlanId(pId);
+        setPlanExpiresAt(pExpiresAt || null);
         setAdsWatchedThisSession(data.adsWatchedThisSession || 0);
         if (data.cooldownUntil) {
           setCooldownUntil(data.cooldownUntil.toDate());
@@ -78,9 +175,12 @@ export const AccountVerificationView: React.FC<AccountVerificationViewProps> = (
           adsWatchedThisSession: 0,
           cooldownUntil: null,
           isVerified: false,
+          planId: 'basic',
           updatedAt: serverTimestamp()
         });
         setIsVerified(false);
+        setCurrentPlanId('basic');
+        setPlanExpiresAt(null);
       }
       setLoading(false);
     });
@@ -90,6 +190,36 @@ export const AccountVerificationView: React.FC<AccountVerificationViewProps> = (
       unsubSettings();
     };
   }, []);
+
+  const handleUpgrade = async () => {
+    if (!auth.currentUser) return;
+    setUpgrading(true);
+    try {
+      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+      const verificationPromise = updateDoc(doc(db, 'account_verifications', auth.currentUser.uid), {
+        planId: selectedPlanId,
+        isVerified: true,
+        planExpiresAt: Timestamp.fromDate(expiresAt),
+        updatedAt: serverTimestamp()
+      });
+
+      const userPromise = updateDoc(doc(db, 'users', auth.currentUser.uid), {
+        planId: selectedPlanId,
+        isVerified: true,
+        planExpiresAt: Timestamp.fromDate(expiresAt),
+        updatedAt: serverTimestamp()
+      });
+
+      await Promise.all([verificationPromise, userPromise]);
+      setCurrentPlanId(selectedPlanId);
+      setPlanExpiresAt(expiresAt);
+      setIsVerified(true);
+    } catch (error) {
+      console.error('Error upgrading plan:', error);
+    } finally {
+      setUpgrading(false);
+    }
+  };
 
   const handleWatchAd = async () => {
     if (!auth.currentUser || isVerified || timeLeft > 0) return;
@@ -102,34 +232,47 @@ export const AccountVerificationView: React.FC<AccountVerificationViewProps> = (
         const newIsVerified = newAdsWatched >= targetAds;
         let newSessionAds = adsWatchedThisSession + 1;
         let newCooldown: Date | null = null;
+        let expiresAt: Date | null = null;
         
         // If watched 3 ads and not yet verified, start 10 min cooldown
         if (newSessionAds >= 3 && !newIsVerified) {
           newCooldown = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
           newSessionAds = 0;
         }
+
+        if (newIsVerified) {
+          expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+        }
         
         try {
-          const verificationPromise = updateDoc(doc(db, 'account_verifications', auth.currentUser!.uid), {
+          const updateData: any = {
             adsWatched: newAdsWatched,
-            adsWatchedThisSession: newAdsWatched >= targetAds ? 0 : newSessionAds,
+            adsWatchedThisSession: newIsVerified ? 0 : newSessionAds,
             cooldownUntil: newCooldown ? Timestamp.fromDate(newCooldown) : null,
             isVerified: newIsVerified,
             updatedAt: serverTimestamp()
-          });
+          };
+
+          if (expiresAt) {
+            updateData.planExpiresAt = Timestamp.fromDate(expiresAt);
+          }
+
+          const verificationPromise = updateDoc(doc(db, 'account_verifications', auth.currentUser!.uid), updateData);
 
           // If verified, also update the main users document for global visibility
           if (newIsVerified) {
             await updateDoc(doc(db, 'users', auth.currentUser!.uid), {
               isVerified: true,
+              planExpiresAt: Timestamp.fromDate(expiresAt!),
               updatedAt: serverTimestamp()
             });
           }
 
           await verificationPromise;
-          setAdsWatched(newAdsWatched);
+          setAdsWatched(newIsVerified ? 0 : newAdsWatched);
           setAdsWatchedThisSession(newIsVerified ? 0 : newSessionAds);
           setCooldownUntil(newCooldown);
+          if (expiresAt) setPlanExpiresAt(expiresAt);
           setIsVerified(newIsVerified);
         } catch (error) {
           console.error('Error updating verification:', error);
@@ -175,197 +318,253 @@ export const AccountVerificationView: React.FC<AccountVerificationViewProps> = (
     return `${m}:${s}`;
   };
 
-  return (
-    <div className="fixed inset-0 z-[130] bg-slate-50 dark:bg-slate-950 flex flex-col">
-      <header className="bg-white dark:bg-slate-900 px-4 pt-safe pb-4 flex items-center justify-between border-b border-slate-200 dark:border-slate-800 shadow-sm">
-        <div className="w-10 h-10" /> {/* Left Spacer */}
-        <h1 className="text-lg font-black text-slate-800 dark:text-slate-100">{language === 'bn' ? 'অ্যাকাউন্ট ভেরিফাই' : 'Account Verification'}</h1>
-        <div className="w-10 h-10" /> {/* Right Spacer */}
-      </header>
+  const getExpirationText = () => {
+    if (!planExpiresAt) return language === 'bn' ? 'বর্তমান প্ল্যান (লাইফটাইম)' : 'Current Plan (Lifetime)';
+    const diff = planExpiresAt.getTime() - Date.now();
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
+    if (days > 0) {
+      return language === 'bn' ? `বর্তমান প্ল্যান (মেয়াদ: ${days} দিন ${hours} ঘণ্টা)` : `Current Plan (Expires in ${days}d ${hours}h)`;
+    }
+    if (hours > 0) {
+      return language === 'bn' ? `বর্তমান প্ল্যান (মেয়াদ: ${hours} ঘণ্টা)` : `Current Plan (Expires in ${hours}h)`;
+    }
+    return language === 'bn' ? 'বর্তমান প্ল্যান (শীঘ্রই শেষ হবে)' : 'Current Plan (Ending Soon)';
+  };
 
-      <div className="flex-1 p-4 flex flex-col items-center overflow-y-auto bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900">
+  const selectedPlanDetails = plans.find(p => p.id === selectedPlanId) || plans[0];
+  const includedFeatures = featureList.filter(f => selectedPlanDetails.features.find(pf => pf.id === f.id && pf.included));
+  const excludedFeatures = featureList.filter(f => selectedPlanDetails.features.find(pf => pf.id === f.id && !pf.included));
+
+  return (
+    <div className="fixed inset-0 z-[1000] bg-white dark:bg-slate-950 flex flex-col">
+      <div className="pt-safe bg-transparent" />
+
+      <div className="flex-1 overflow-y-auto pb-safe">
         {loading ? (
-          <div className="flex-1 flex items-center justify-center">
+          <div className="h-full flex items-center justify-center">
             <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
           </div>
         ) : (
-          <div className="w-full max-w-md space-y-6 pb-20 mt-4">
-            {/* Premium Verification Card */}
-            <div className="relative rounded-3xl p-[1px] overflow-hidden shadow-2xl">
-              {/* Animated Gradient Border */}
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-400 via-indigo-500 to-purple-600 opacity-50" />
-              
-              <div className="relative bg-white dark:bg-slate-900 rounded-3xl p-8 flex flex-col items-center text-center overflow-hidden">
-                {/* Background Glow */}
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-32 bg-blue-500/10 dark:bg-blue-500/20 blur-3xl rounded-full pointer-events-none" />
+          <div className="flex flex-col min-h-full relative">
+            {/* Abstract Background Animation */}
+            <div className="absolute top-0 left-0 right-0 h-64 overflow-hidden pointer-events-none">
+              <div className="absolute -top-32 -right-32 w-96 h-96 bg-blue-500/10 dark:bg-blue-500/20 blur-[100px] rounded-full" />
+              <div className="absolute top-16 -left-32 w-80 h-80 bg-cyan-500/10 dark:bg-cyan-500/20 blur-[80px] rounded-full" />
+            </div>
 
-                {isVerified ? (
+            {/* Animation Header */}
+            <div className="relative pt-4 pb-6 flex flex-col items-center justify-center">
+              <motion.div 
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ type: "spring", stiffness: 200, damping: 15 }}
+                className="relative"
+              >
+                <motion.div
+                  animate={{ y: [-5, 5, -5] }}
+                  transition={{ repeat: Infinity, duration: 4, ease: "easeInOut" }}
+                  className="relative z-10 w-24 h-24 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-2xl shadow-blue-500/30 rotate-3"
+                >
+                  <ShieldCheck className="w-12 h-12 text-white" />
                   <motion.div 
-                    initial={{ scale: 0.9, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    className="flex flex-col items-center py-6"
+                    animate={{ rotate: 360 }}
+                    transition={{ repeat: Infinity, duration: 20, ease: "linear" }}
+                    className="absolute -inset-2 border border-blue-400/40 rounded-2xl border-dashed"
+                  />
+                  <div className="absolute -bottom-3 -right-3 w-10 h-10 bg-amber-400 rounded-full flex items-center justify-center shadow-lg border-4 border-white dark:border-slate-950">
+                    <Star className="w-5 h-5 text-amber-900 fill-amber-900" />
+                  </div>
+                </motion.div>
+              </motion.div>
+            </div>
+
+            {/* Header / Subtitle */}
+            <div className="px-5 pt-2 pb-6 text-center relative z-10">
+              <h2 className="text-2xl font-black text-slate-800 dark:text-white mb-2 leading-tight">
+                {language === 'bn' ? 'আপনার প্ল্যান বেছে নিন' : 'Choose Your Plan'}
+              </h2>
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                {language === 'bn' ? 'আরও বেশি সুবিধা এবং ইনকামের সুযোগ পেতে আপনার প্রোফাইল আপগ্রেড করুন।' : 'Upgrade your profile to unlock more features and earning opportunities.'}
+              </p>
+            </div>
+
+            {/* Vertical Plan Cards (Edge to edge) */}
+            <div className="px-5 flex flex-col gap-3 relative z-10">
+              {plans.map((plan) => {
+                const isSelected = selectedPlanId === plan.id;
+                return (
+                  <button
+                    key={plan.id}
+                    onClick={() => setSelectedPlanId(plan.id)}
+                    className={cn(
+                      "w-full p-4 flex items-center text-left relative overflow-hidden transition-all duration-300",
+                      "border rounded-lg",
+                      isSelected 
+                        ? "border-blue-500 bg-blue-50/50 dark:bg-blue-900/20 shadow-sm" 
+                        : "border-slate-200 dark:border-slate-800 bg-transparent opacity-90 hover:opacity-100 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                    )}
                   >
-                    <div className="w-24 h-24 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center mb-6 shadow-lg shadow-blue-500/30">
-                      <CheckCircle2 className="w-12 h-12 text-white" />
-                    </div>
-                    <h2 className="text-2xl font-black text-slate-900 dark:text-white mb-2">
-                      {language === 'bn' ? 'ভেরিফাইড অ্যাকাউন্ট' : 'Verified Account'}
-                    </h2>
-                    <p className="text-slate-500 dark:text-slate-400">
-                      {language === 'bn' ? 'আপনার অ্যাকাউন্ট সফলভাবে ভেরিফাই করা হয়েছে।' : 'Your account has been successfully verified.'}
-                    </p>
-                  </motion.div>
-                ) : (
-                  <div className="flex flex-col items-center w-full z-10">
-                    <div className="relative mb-8 group">
-                      <div className="absolute inset-0 bg-blue-500/20 dark:bg-blue-500/30 blur-2xl rounded-full transition-all duration-500 group-hover:bg-blue-500/30" />
-                      <div className="w-28 h-28 bg-gradient-to-br from-slate-100 to-white dark:from-slate-800 dark:to-slate-900 rounded-full flex items-center justify-center shadow-xl border border-slate-200 dark:border-slate-700 relative z-10">
-                        <ShieldCheck className="w-14 h-14 text-blue-600 dark:text-blue-400" />
-                        <div className="absolute -bottom-2 -right-2 w-10 h-10 bg-gradient-to-br from-amber-400 to-orange-500 rounded-full flex items-center justify-center shadow-lg border-2 border-white dark:border-slate-900">
-                          <Crown className="w-5 h-5 text-white" />
-                        </div>
-                      </div>
-                    </div>
-
-                    <h2 className="text-2xl font-black text-slate-900 dark:text-white mb-3">
-                      {language === 'bn' ? 'প্রিমিয়াম ভেরিফিকেশন' : 'Premium Verification'}
-                    </h2>
+                    {!isSelected && (
+                      <div className="absolute inset-0 bg-slate-900/5 dark:bg-white/5 opacity-0 hover:opacity-100 transition-opacity" />
+                    )}
                     
-                    <p className="text-slate-500 dark:text-slate-400 text-sm mb-8 leading-relaxed px-4">
-                      {language === 'bn' 
-                        ? `আপনার অ্যাকাউন্ট ভেরিফাই করতে ${targetAds}টি বিজ্ঞাপন দেখুন এবং ব্লু ব্যাজ অর্জন করুন।` 
-                        : `Watch ${targetAds} ads to verify your account and earn the blue badge.`}
-                    </p>
-
-                    {/* Progress Bar */}
-                    <div className="w-full mb-8">
-                      <div className="flex justify-between text-sm font-bold mb-2">
-                        <span className="text-slate-700 dark:text-slate-300">
-                          {language === 'bn' ? 'প্রোগ্রেস' : 'Progress'}
-                        </span>
-                        <span className="text-blue-600 dark:text-blue-400">
-                          {adsWatched} / {targetAds}
-                        </span>
-                      </div>
-                      <div className="h-3 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden shadow-inner">
-                        <motion.div 
-                          className="h-full bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full"
-                          initial={{ width: 0 }}
-                          animate={{ width: `${progress}%` }}
-                          transition={{ duration: 0.5, ease: "easeOut" }}
-                        />
-                      </div>
+                    <div className={cn(
+                      "w-12 h-12 rounded-lg flex items-center justify-center shrink-0 mr-4 shadow-sm",
+                      `bg-gradient-to-br ${plan.gradient}`
+                    )}>
+                      {React.cloneElement(plan.icon, { className: "w-6 h-6 text-white" })}
                     </div>
-
-                    {timeLeft > 0 ? (
-                      <div className="w-full py-3 bg-slate-100 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 font-black rounded-2xl flex flex-col items-center justify-center gap-1 border border-slate-200 dark:border-slate-700 shadow-inner">
-                        <span className="text-xs uppercase tracking-wider font-bold text-slate-400">
-                          {language === 'bn' ? 'পরবর্তী বিজ্ঞাপনের জন্য অপেক্ষা করুন' : 'Wait for next ad'}
-                        </span>
-                        <span className="text-2xl text-slate-700 dark:text-slate-300 font-mono tracking-widest">
-                          {formatTime(timeLeft)}
-                        </span>
+                    
+                    <div className="flex-1">
+                      <h3 className={cn(
+                        "text-base font-bold mb-0.5",
+                        isSelected ? "text-blue-700 dark:text-blue-400" : "text-slate-800 dark:text-white"
+                      )}>
+                        {language === 'bn' ? plan.nameBn : plan.name}
+                      </h3>
+                      
+                      <p className={cn(
+                        "text-sm font-bold tracking-tight",
+                        isSelected ? "text-slate-700 dark:text-slate-300" : "text-slate-500 dark:text-slate-400"
+                      )}>
+                        {language === 'bn' ? plan.priceBn : plan.price}
+                      </p>
+                    </div>
+                    
+                    {isSelected ? (
+                      <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center shrink-0 ml-3 shadow-md shadow-blue-500/50">
+                        <Check className="w-3.5 h-3.5 text-white stroke-[3]" />
                       </div>
                     ) : (
-                      <button
-                        onClick={handleWatchAd}
-                        disabled={watching}
-                        className="w-full py-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-black rounded-2xl shadow-lg shadow-blue-600/25 flex items-center justify-center gap-3 disabled:opacity-70 transition-all active:scale-[0.98] relative overflow-hidden"
-                      >
-                        {/* Shine effect */}
-                        <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent animate-[shimmer_2s_infinite]" />
-                        
-                        {watching ? <Loader2 className="w-6 h-6 animate-spin" /> : <Play className="w-6 h-6 fill-current" />}
-                        <span className="text-lg">
-                          {watching ? (language === 'bn' ? 'বিজ্ঞাপন চলছে...' : 'Watching...') : (language === 'bn' ? 'বিজ্ঞাপন দেখুন' : 'Watch Ad')}
+                      <div className="w-6 h-6 rounded-full border-2 border-slate-300 dark:border-slate-600 flex items-center justify-center shrink-0 ml-3" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Features Details View */}
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={selectedPlanId}
+                initial={{ opacity: 0, y: 5 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -5 }}
+                transition={{ duration: 0.2 }}
+                className="flex-1"
+              >
+                <div className="p-6">
+                  <h3 className="font-bold text-slate-800 dark:text-slate-200 text-lg mb-6 flex items-center gap-2">
+                    <Star className="w-5 h-5 text-amber-500 fill-amber-500" />
+                    {language === 'bn' ? 'প্ল্যানের সুবিধাসমূহ' : 'Plan Features'}
+                  </h3>
+
+                  <div className="space-y-4">
+                    {/* Included Features */}
+                    {includedFeatures.map(f => (
+                      <div key={f.id} className="flex items-start gap-4">
+                        <div className="w-6 h-6 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
+                          <Check className="w-4 h-4 text-green-600 dark:text-green-400 stroke-[3]" />
+                        </div>
+                        <span className="text-slate-700 dark:text-slate-200 font-medium leading-relaxed">
+                          {language === 'bn' ? f.labelBn : f.label}
                         </span>
+                      </div>
+                    ))}
+
+                    {/* Divider if there are excluded features */}
+                    {excludedFeatures.length > 0 && includedFeatures.length > 0 && (
+                      <div className="my-5 border-t border-slate-100 dark:border-slate-800" />
+                    )}
+
+                    {/* Excluded Features */}
+                    {excludedFeatures.map(f => (
+                      <div key={f.id} className="flex items-start gap-4 opacity-50 grayscale">
+                        <div className="w-6 h-6 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center shrink-0 mt-0.5">
+                          <X className="w-4 h-4 text-red-600 dark:text-red-400 stroke-[3]" />
+                        </div>
+                        <span className="text-slate-500 dark:text-slate-400 font-medium leading-relaxed line-through decoration-slate-300 dark:decoration-slate-700">
+                          {language === 'bn' ? f.labelBn : f.label}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Action Button */}
+                  <div className="mt-6 pb-2">
+                    {selectedPlanId === 'basic' ? (
+                        /* Using the existing Ad verify logic conditionally within basic if not verified */
+                         isVerified ? (
+                          <div className="w-full py-3 bg-green-500 text-white rounded-xl font-bold flex items-center justify-center gap-2 shadow-sm text-sm opacity-90 cursor-not-allowed">
+                            <CheckCircle2 className="w-4 h-4" />
+                            {getExpirationText()}
+                          </div>
+                         ) : (
+                          <div className="space-y-3">
+                            <p className="text-center text-xs font-bold text-slate-500 dark:text-slate-400">
+                              {language === 'bn' 
+                                ? `ফ্রিতে ভেরিফাই করতে ${targetAds}টি অ্যাড দেখুন (${adsWatched}/${targetAds})`
+                                : `Watch ${targetAds} ads to verify for free (${adsWatched}/${targetAds})`}
+                            </p>
+                            
+                            {/* Progres Bar */}
+                            <div className="h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                              <motion.div 
+                                className="h-full bg-blue-500 rounded-full"
+                                initial={{ width: 0 }}
+                                animate={{ width: `${progress}%` }}
+                              />
+                            </div>
+
+                            {timeLeft > 0 ? (
+                              <div className="w-full py-3 bg-slate-100 dark:bg-slate-800/50 text-slate-500 font-bold rounded-xl text-center text-sm">
+                                {formatTime(timeLeft)}
+                              </div>
+                            ) : (
+                              <button
+                                onClick={handleWatchAd}
+                                disabled={watching}
+                                className="w-full py-3 bg-slate-800 dark:bg-slate-700 hover:bg-slate-900 dark:hover:bg-slate-600 text-white font-bold rounded-xl shadow-md flex items-center justify-center gap-2 transition-all active:scale-[0.98] text-sm"
+                              >
+                                {watching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4 fill-current" />}
+                                {language === 'bn' ? 'অ্যাড দেখুন' : 'Watch Ad'}
+                              </button>
+                            )}
+                          </div>
+                         )
+                    ) : (
+                      <button 
+                        onClick={handleUpgrade}
+                        disabled={upgrading || isVerified}
+                        className={cn(
+                          "w-full py-3 rounded-xl font-bold text-white text-sm shadow-md flex justify-center items-center gap-2 transition-all active:scale-[0.98]",
+                          `bg-gradient-to-r ${selectedPlanDetails.gradient}`,
+                          (upgrading || isVerified) && "opacity-70 pointer-events-none cursor-not-allowed"
+                        )}
+                      >
+                        {upgrading ? <Loader2 className="w-4 h-4 animate-spin" /> : (isVerified && currentPlanId === selectedPlanId) ? (
+                          <>
+                            <CheckCircle2 className="w-4 h-4" />
+                            {getExpirationText()}
+                          </>
+                        ) : isVerified ? (
+                          <>
+                            <CheckCircle2 className="w-4 h-4" />
+                            {language === 'bn' ? 'আপগ্রেড আপাতত বন্ধ (মেয়াদ আছে)' : 'Upgrade Locked (Active Plan)'}
+                          </>
+                        ) : (language === 'bn' ? 'আপগ্রেড করুন' : 'Upgrade Now')}
                       </button>
                     )}
                   </div>
-                )}
-              </div>
-            </div>
-
-            {/* Premium Features Grid */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-100 dark:border-slate-800 shadow-lg flex flex-col items-center text-center relative overflow-hidden group hover:border-blue-200 dark:hover:border-blue-900/50 transition-colors">
-                <div className="absolute top-0 right-0 w-16 h-16 bg-blue-50 dark:bg-blue-900/10 rounded-bl-full -z-10 transition-transform group-hover:scale-110" />
-                <div className="w-14 h-14 bg-gradient-to-br from-blue-100 to-blue-50 dark:from-blue-900/40 dark:to-blue-800/20 rounded-2xl flex items-center justify-center mb-4 shadow-sm">
-                  <ShieldCheck className="w-7 h-7 text-blue-600 dark:text-blue-400" />
                 </div>
-                <h3 className="font-bold text-slate-800 dark:text-slate-200 text-base mb-1.5">
-                  {language === 'bn' ? 'নিরাপদ অ্যাকাউন্ট' : 'Secure Account'}
-                </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                  {language === 'bn' ? 'আপনার তথ্য সম্পূর্ণ নিরাপদ ও সুরক্ষিত' : 'Your data is completely safe and secure'}
-                </p>
-              </div>
-              
-              <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-100 dark:border-slate-800 shadow-lg flex flex-col items-center text-center relative overflow-hidden group hover:border-amber-200 dark:hover:border-amber-900/50 transition-colors">
-                <div className="absolute top-0 right-0 w-16 h-16 bg-amber-50 dark:bg-amber-900/10 rounded-bl-full -z-10 transition-transform group-hover:scale-110" />
-                <div className="w-14 h-14 bg-gradient-to-br from-amber-100 to-amber-50 dark:from-amber-900/40 dark:to-amber-800/20 rounded-2xl flex items-center justify-center mb-4 shadow-sm">
-                  <Award className="w-7 h-7 text-amber-600 dark:text-amber-400" />
-                </div>
-                <h3 className="font-bold text-slate-800 dark:text-slate-200 text-base mb-1.5">
-                  {language === 'bn' ? 'ট্রাস্ট ব্যাজ' : 'Trust Badge'}
-                </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                  {language === 'bn' ? 'প্রোফাইলে আকর্ষণীয় ব্লু ব্যাজ যুক্ত হবে' : 'Attractive blue badge will be added'}
-                </p>
-              </div>
-            </div>
+              </motion.div>
+            </AnimatePresence>
 
-            {/* Benefits List */}
-            <div className="bg-white dark:bg-slate-900 rounded-3xl p-7 border border-slate-100 dark:border-slate-800 shadow-lg">
-              <h3 className="font-black text-slate-900 dark:text-white mb-6 flex items-center gap-3 text-lg">
-                <Star className="w-6 h-6 text-amber-500 fill-amber-500" />
-                {language === 'bn' ? 'ভেরিফিকেশন সুবিধাসমূহ' : 'Verification Benefits'}
-              </h3>
-              <ul className="space-y-5 text-sm text-slate-600 dark:text-slate-400">
-                <li className="flex items-start gap-4">
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-100 to-blue-50 dark:from-blue-900/40 dark:to-blue-800/20 flex items-center justify-center shrink-0 shadow-sm">
-                    <CheckCircle2 className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                  </div>
-                  <div className="pt-1">
-                    <span className="font-bold text-slate-800 dark:text-slate-200 block mb-1 text-base">
-                      {language === 'bn' ? 'প্রোফাইলে ব্লু ব্যাজ' : 'Blue badge on profile'}
-                    </span>
-                    <span className="text-sm leading-relaxed block">
-                      {language === 'bn' ? 'আপনার নামের পাশে একটি ভেরিফাইড ব্যাজ দেখাবে যা আপনার অ্যাকাউন্টের বিশ্বস্ততা বাড়াবে' : 'A verified badge will show next to your name, increasing account trust'}
-                    </span>
-                  </div>
-                </li>
-                <li className="flex items-start gap-4">
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-100 to-blue-50 dark:from-blue-900/40 dark:to-blue-800/20 flex items-center justify-center shrink-0 shadow-sm">
-                    <CheckCircle2 className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                  </div>
-                  <div className="pt-1">
-                    <span className="font-bold text-slate-800 dark:text-slate-200 block mb-1 text-base">
-                      {language === 'bn' ? 'বিশেষ ফিচার অ্যাক্সেস' : 'Access to special features'}
-                    </span>
-                    <span className="text-sm leading-relaxed block">
-                      {language === 'bn' ? 'ভেরিফাইড ইউজারদের জন্য বিশেষ কাজ এবং বেশি ইনকামের সুযোগ' : 'Special tasks and higher earning opportunities for verified users'}
-                    </span>
-                  </div>
-                </li>
-                <li className="flex items-start gap-4">
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-100 to-blue-50 dark:from-blue-900/40 dark:to-blue-800/20 flex items-center justify-center shrink-0 shadow-sm">
-                    <CheckCircle2 className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                  </div>
-                  <div className="pt-1">
-                    <span className="font-bold text-slate-800 dark:text-slate-200 block mb-1 text-base">
-                      {language === 'bn' ? 'সাপোর্টে অগ্রাধিকার' : 'Priority support'}
-                    </span>
-                    <span className="text-sm leading-relaxed block">
-                      {language === 'bn' ? 'যেকোনো সমস্যায় কাস্টমার সাপোর্টে দ্রুত সমাধান পাওয়ার সুবিধা' : 'Fast resolution from customer support for any issues'}
-                    </span>
-                  </div>
-                </li>
-              </ul>
-            </div>
           </div>
         )}
       </div>
     </div>
   );
 };
+

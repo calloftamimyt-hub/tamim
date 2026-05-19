@@ -94,6 +94,7 @@ import { Capacitor } from "@capacitor/core";
 
 import { VerifiedBadge } from "@/components/VerifiedBadge";
 import { ReferAndEarn } from "@/components/ReferAndEarn";
+import { plans } from "./AccountVerificationView";
 
 interface EarningViewProps {
   onBack: () => void;
@@ -112,12 +113,14 @@ const EARNING_CATEGORIES = [
     icon: Smartphone,
     color: "text-white",
     bg: "bg-gradient-to-br from-blue-400 to-blue-600",
+    minPlan: "silver",
   },
   {
     id: "drive-offer",
     icon: Zap,
     color: "text-white",
     bg: "bg-gradient-to-br from-amber-400 to-orange-500",
+    minPlan: "silver",
   },
   {
     id: "reselling",
@@ -125,6 +128,7 @@ const EARNING_CATEGORIES = [
     color: "text-white",
     bg: "bg-gradient-to-br from-emerald-400 to-teal-600",
     comingSoon: true,
+    minPlan: "gold",
   },
   {
     id: "brand-job",
@@ -132,36 +136,42 @@ const EARNING_CATEGORIES = [
     color: "text-white",
     bg: "bg-gradient-to-br from-purple-400 to-indigo-600",
     comingSoon: true,
+    minPlan: "gold",
   },
   {
     id: "typing-job",
     icon: Keyboard,
     color: "text-white",
     bg: "bg-gradient-to-br from-rose-400 to-pink-600",
+    minPlan: "premium",
   },
   {
     id: "micro-job",
     icon: MousePointer2,
     color: "text-white",
     bg: "bg-gradient-to-br from-indigo-400 to-blue-600",
+    minPlan: "silver",
   },
   {
     id: "quiz",
     icon: Trophy,
     color: "text-white",
     bg: "bg-gradient-to-br from-yellow-400 to-orange-500",
+    minPlan: "basic",
   },
   {
     id: "ad-view",
     icon: Eye,
     color: "text-white",
     bg: "bg-gradient-to-br from-cyan-400 to-blue-500",
+    minPlan: "basic",
   },
   {
     id: "job-post",
     icon: FileText,
     color: "text-white",
     bg: "bg-gradient-to-br from-orange-400 to-red-500",
+    minPlan: "premium",
   },
   {
     id: "course",
@@ -169,6 +179,7 @@ const EARNING_CATEGORIES = [
     color: "text-white",
     bg: "bg-gradient-to-br from-blue-500 to-indigo-700",
     comingSoon: true,
+    minPlan: "premium",
   },
   {
     id: "skill",
@@ -176,6 +187,7 @@ const EARNING_CATEGORIES = [
     color: "text-white",
     bg: "bg-gradient-to-br from-yellow-400 to-amber-600",
     comingSoon: true,
+    minPlan: "premium",
   },
   {
     id: "it-service",
@@ -183,6 +195,7 @@ const EARNING_CATEGORIES = [
     color: "text-white",
     bg: "bg-gradient-to-br from-cyan-500 to-blue-700",
     comingSoon: true,
+    minPlan: "premium",
   },
 ];
 
@@ -235,6 +248,7 @@ export function EarningView({ onBack }: EarningViewProps) {
   const [hotJobs, setHotJobs] = useState<any[]>([]);
   const [loadingHotJobs, setLoadingHotJobs] = useState(true);
   const [isVerified, setIsVerified] = useState<boolean | undefined>(undefined);
+  const [planId, setPlanId] = useState<string>('basic');
   const [showBalance, setShowBalance] = useState(false);
   const [isCategoriesExpanded, setIsCategoriesExpanded] = useState(false);
   const [currentBanner, setCurrentBanner] = useState(0);
@@ -390,8 +404,28 @@ export function EarningView({ onBack }: EarningViewProps) {
     // Listen to users collection as the master record for verification (controllable via admin panel)
     const unsub = onSnapshot(doc(db, "users", currentUser.uid), async (userSnap) => {
       if (userSnap.exists()) {
-        const verified = userSnap.data()?.isVerified || false;
+        let verified = userSnap.data()?.isVerified || false;
+        let pId = userSnap.data()?.planId || 'basic';
+        const planExpiresAt = userSnap.data()?.planExpiresAt?.toDate();
+
+        if (verified && planExpiresAt && new Date() > planExpiresAt) {
+          verified = false;
+          pId = 'basic';
+          // Update the database to reflect the expired state globally
+          try {
+            await updateDoc(doc(db, "users", currentUser.uid), {
+              isVerified: false,
+              planId: 'basic',
+              updatedAt: serverTimestamp()
+            });
+            return; // onSnapshot will trigger again
+          } catch(e) {
+            console.error("Failed to expire plan", e);
+          }
+        }
+
         setIsVerified(verified);
+        setPlanId(pId);
 
         // If the admin un-verified the user (verified is false),
         // we must sync this down to the account_verifications document
@@ -399,9 +433,10 @@ export function EarningView({ onBack }: EarningViewProps) {
           try {
             const avRef = doc(db, "account_verifications", currentUser.uid);
             const avDoc = await getDoc(avRef);
-            if (avDoc.exists() && (avDoc.data().isVerified || avDoc.data().adsWatched > 0)) {
+            if (avDoc.exists() && (avDoc.data().isVerified || avDoc.data().adsWatched > 0 || avDoc.data().planId !== 'basic')) {
               await updateDoc(avRef, {
                 isVerified: false,
+                planId: 'basic',
                 adsWatched: 0,
                 adsWatchedThisSession: 0,
                 updatedAt: serverTimestamp(),
@@ -413,6 +448,7 @@ export function EarningView({ onBack }: EarningViewProps) {
         }
       } else {
         setIsVerified(false);
+        setPlanId('basic');
       }
     });
     return () => unsub();
@@ -514,7 +550,25 @@ export function EarningView({ onBack }: EarningViewProps) {
     return () => unsubBalance();
   }, [currentUser]);
 
+  const [upgradePromptCategory, setUpgradePromptCategory] = useState<string | null>(null);
+
+  const planLevels: Record<string, number> = {
+    'basic': 1,
+    'silver': 2,
+    'gold': 3,
+    'premium': 4
+  };
+
   const handleCategoryClick = (id: string) => {
+    const category = EARNING_CATEGORIES.find(c => c.id === id);
+    if (category && category.minPlan) {
+      const userLevel = planLevels[planId] || 1;
+      const requiredLevel = planLevels[category.minPlan] || 1;
+      if (userLevel < requiredLevel) {
+        setUpgradePromptCategory(category.minPlan);
+        return;
+      }
+    }
     setActiveSubView(id);
     window.history.pushState({ view: id }, "");
   };
@@ -710,7 +764,7 @@ export function EarningView({ onBack }: EarningViewProps) {
         <div className="bg-white dark:bg-slate-900 w-full rounded-t-xl shadow-xl shadow-black/5 overflow-hidden border-t border-slate-100 dark:border-slate-800 pb-0">
           {/* User Account Header inside Card */}
           <div className="p-4 flex items-center gap-4 bg-slate-50/50 dark:bg-slate-800/30 border-b border-slate-100 dark:border-slate-800">
-            <div className="w-14 h-14 bg-white dark:bg-slate-900 rounded-full flex items-center justify-center p-0.5 shadow-sm border border-slate-200 dark:border-slate-700">
+            <div className="relative w-14 h-14 bg-white dark:bg-slate-900 rounded-full flex items-center justify-center p-0.5 shadow-sm border border-slate-200 dark:border-slate-700">
               <div className="w-full h-full rounded-full flex items-center justify-center overflow-hidden bg-primary/5">
                 {currentUser?.photoURL ||
                 (currentUser as any)?.user_metadata?.avatar_url ||
@@ -741,6 +795,14 @@ export function EarningView({ onBack }: EarningViewProps) {
                   </div>
                 )}
               </div>
+              {isVerified && (() => {
+                const activePlan = plans.find(p => p.id === planId) || plans[0];
+                return (
+                  <div className={`absolute -top-1 -right-1 w-6 h-6 rounded-full bg-gradient-to-br ${activePlan.gradient} flex items-center justify-center shadow-md border-2 border-white dark:border-slate-800 z-10`} title={activePlan.name}>
+                    {React.cloneElement(activePlan.icon, { className: "w-3.5 h-3.5 text-white" })}
+                  </div>
+                );
+              })()}
             </div>
 
             <div className="flex-1 flex flex-col gap-1 min-w-0">
@@ -1726,6 +1788,51 @@ export function EarningView({ onBack }: EarningViewProps) {
             </div>
           </motion.div>
         ) : null}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {upgradePromptCategory && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl relative"
+            >
+              <div className="p-6 text-center">
+                <div className="w-16 h-16 bg-blue-100 dark:bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <ShieldCheck className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+                </div>
+                <h3 className="text-xl font-black text-slate-800 dark:text-white mb-2">
+                  {language === 'bn' ? 'আপগ্রেড প্রয়োজন' : 'Upgrade Required'}
+                </h3>
+                <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-6">
+                  {language === 'bn' 
+                    ? `এই ক্যাটাগরিতে কাজ করার জন্য আপনার প্ল্যান আপগ্রেড করুন।` 
+                    : `Please upgrade your plan to access this earning category.`}
+                </p>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setUpgradePromptCategory(null)}
+                    className="flex-1 py-3 px-4 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold rounded-xl active:scale-95 transition-transform"
+                  >
+                    {language === 'bn' ? 'পরে' : 'Later'}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setUpgradePromptCategory(null);
+                      setActiveSubView('account-verification');
+                      window.history.pushState({ view: 'account-verification' }, "");
+                    }}
+                    className="flex-1 py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl active:scale-95 transition-transform shadow-md shadow-blue-500/20"
+                  >
+                    {language === 'bn' ? 'আপগ্রেড করুন' : 'Upgrade'}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
       </AnimatePresence>
     </div>
   );

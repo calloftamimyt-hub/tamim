@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@capacitor-community/admob": "^8.0.0",
+    "@capacitor/android": "^8.3.4",
     "@capacitor/app": "^8.1.0",
     "@capacitor/camera": "^8.2.0",
     "@capacitor/core": "^8.3.3",
@@ -48,6 +49,7 @@
     "usehooks-ts": "^3.1.1"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.3.4",
     "@tailwindcss/vite": "^4.3.0",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
