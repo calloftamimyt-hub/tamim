@@ -9,8 +9,10 @@ const config: CapacitorConfig = {
     allowNavigation: [
       'muslim-sathi-1.onrender.com',
       'api.telegram.org',
-      'ais-dev-47x2krhcb7hnr5enczfekd-107332946958.asia-east1.run.app',
-      'muslim-sathi-video.onrender.com'
+      'ais-dev-xpt625mejzdy6pkn63egic-61738440703.asia-east1.run.app',
+      'ais-pre-xpt625mejzdy6pkn63egic-61738440703.asia-east1.run.app',
+      'muslim-sathi-video.onrender.com',
+      '*.run.app'
     ]
   },
   plugins: {

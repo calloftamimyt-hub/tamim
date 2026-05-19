@@ -28,7 +28,7 @@ export const getApiUrl = (path: string) => {
     }
 
     // Otherwise (like Android Studio WebView context without explicit Capacitor), fallback to the remote backend
-    return `https://muslim-sathi-sosal.onrender.com${path}`;
+    return `https://ais-pre-xpt625mejzdy6pkn63egic-61738440703.asia-east1.run.app${path}`;
 };
 
 export const formatCount = (num: number) => {
