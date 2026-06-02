@@ -406,23 +406,6 @@ export function EarningView({ onBack }: EarningViewProps) {
       if (userSnap.exists()) {
         let verified = userSnap.data()?.isVerified || false;
         let pId = userSnap.data()?.planId || 'basic';
-        const planExpiresAt = userSnap.data()?.planExpiresAt?.toDate();
-
-        if (verified && planExpiresAt && new Date() > planExpiresAt) {
-          verified = false;
-          pId = 'basic';
-          // Update the database to reflect the expired state globally
-          try {
-            await updateDoc(doc(db, "users", currentUser.uid), {
-              isVerified: false,
-              planId: 'basic',
-              updatedAt: serverTimestamp()
-            });
-            return; // onSnapshot will trigger again
-          } catch(e) {
-            console.error("Failed to expire plan", e);
-          }
-        }
 
         setIsVerified(verified);
         setPlanId(pId);

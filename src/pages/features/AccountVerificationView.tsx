@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ArrowLeft, Play, CheckCircle2, XCircle, Loader2, ShieldCheck, Star, Award, Crown, Zap, Check, X } from 'lucide-react';
+import { ArrowLeft, Play, CheckCircle2, XCircle, Loader2, ShieldCheck, Star, Award, Crown, Zap, Check, X, Clock } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { cn } from '@/lib/utils';
 import { doc, getDoc, updateDoc, setDoc, serverTimestamp, Timestamp, onSnapshot } from 'firebase/firestore';
@@ -35,8 +35,8 @@ export const plans = [
     nameBn: 'সিলভার প্ল্যান',
     gradient: 'from-zinc-400 to-slate-600',
     icon: <Award className="w-8 h-8 text-white" />,
-    price: '50 ৳ / 7 Days',
-    priceBn: '৫০ ৳ / ৭ দিন',
+    price: '50 ৳ / Lifetime',
+    priceBn: '৫০ ৳ / লাইফটাইম',
     features: [
       { id: 'f1', included: true },
       { id: 'f2', included: true },
@@ -52,8 +52,8 @@ export const plans = [
     nameBn: 'গোল্ড প্ল্যান',
     gradient: 'from-amber-400 to-orange-500',
     icon: <Crown className="w-8 h-8 text-white" />,
-    price: '100 ৳ / 7 Days',
-    priceBn: '১০০ ৳ / ৭ দিন',
+    price: '100 ৳ / Lifetime',
+    priceBn: '১০০ ৳ / লাইফটাইম',
     features: [
       { id: 'f1', included: true },
       { id: 'f2', included: true },
@@ -69,8 +69,8 @@ export const plans = [
     nameBn: 'প্রিমিয়াম প্ল্যান',
     gradient: 'from-purple-500 to-indigo-600',
     icon: <Zap className="w-8 h-8 text-white" />,
-    price: '200 ৳ / 7 Days',
-    priceBn: '২০০ ৳ / ৭ দিন',
+    price: '200 ৳ / Lifetime',
+    priceBn: '২০০ ৳ / লাইফটাইম',
     features: [
       { id: 'f1', included: true },
       { id: 'f2', included: true },
@@ -106,6 +106,10 @@ export const AccountVerificationView: React.FC<AccountVerificationViewProps> = (
   const [currentPlanId, setCurrentPlanId] = useState<string>('basic');
   const [planExpiresAt, setPlanExpiresAt] = useState<Date | null>(null);
   const [upgrading, setUpgrading] = useState(false);
+
+  const [upgradeState, setUpgradeState] = useState<'idle' | 'confirm' | 'method' | 'transaction' | 'cooldown_popup'>('idle');
+  const [paymentMethod, setPaymentMethod] = useState<'bkash' | 'nagad' | null>(null);
+  const [transactionId, setTransactionId] = useState('');
 
   // Timer effect for cooldown
   useEffect(() => {
@@ -154,11 +158,6 @@ export const AccountVerificationView: React.FC<AccountVerificationViewProps> = (
         let pId = data.planId || 'basic';
         const pExpiresAt = data.planExpiresAt?.toDate();
 
-        if (verified && pExpiresAt && new Date() > pExpiresAt) {
-          verified = false;
-          pId = 'basic';
-        }
-
         setAdsWatched(verified ? 0 : (data.adsWatched || 0));
         setIsVerified(verified);
         setCurrentPlanId(pId);
@@ -191,8 +190,9 @@ export const AccountVerificationView: React.FC<AccountVerificationViewProps> = (
     };
   }, []);
 
-  const handleUpgrade = async () => {
+  const processUpgrade = async () => {
     if (!auth.currentUser) return;
+    if (!transactionId.trim()) return;
     setUpgrading(true);
     try {
       const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
@@ -214,10 +214,20 @@ export const AccountVerificationView: React.FC<AccountVerificationViewProps> = (
       setCurrentPlanId(selectedPlanId);
       setPlanExpiresAt(expiresAt);
       setIsVerified(true);
+      setUpgradeState('idle');
     } catch (error) {
       console.error('Error upgrading plan:', error);
     } finally {
       setUpgrading(false);
+      setTransactionId('');
+    }
+  };
+
+  const handleUpgradeClick = () => {
+    if (isVerified && planExpiresAt && new Date() < planExpiresAt) {
+      setUpgradeState('cooldown_popup');
+    } else {
+      setUpgradeState('confirm');
     }
   };
 
@@ -316,20 +326,6 @@ export const AccountVerificationView: React.FC<AccountVerificationViewProps> = (
     const m = Math.floor(seconds / 60).toString().padStart(2, '0');
     const s = (seconds % 60).toString().padStart(2, '0');
     return `${m}:${s}`;
-  };
-
-  const getExpirationText = () => {
-    if (!planExpiresAt) return language === 'bn' ? 'বর্তমান প্ল্যান (লাইফটাইম)' : 'Current Plan (Lifetime)';
-    const diff = planExpiresAt.getTime() - Date.now();
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-    const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
-    if (days > 0) {
-      return language === 'bn' ? `বর্তমান প্ল্যান (মেয়াদ: ${days} দিন ${hours} ঘণ্টা)` : `Current Plan (Expires in ${days}d ${hours}h)`;
-    }
-    if (hours > 0) {
-      return language === 'bn' ? `বর্তমান প্ল্যান (মেয়াদ: ${hours} ঘণ্টা)` : `Current Plan (Expires in ${hours}h)`;
-    }
-    return language === 'bn' ? 'বর্তমান প্ল্যান (শীঘ্রই শেষ হবে)' : 'Current Plan (Ending Soon)';
   };
 
   const selectedPlanDetails = plans.find(p => p.id === selectedPlanId) || plans[0];
@@ -498,7 +494,7 @@ export const AccountVerificationView: React.FC<AccountVerificationViewProps> = (
                          isVerified ? (
                           <div className="w-full py-3 bg-green-500 text-white rounded-xl font-bold flex items-center justify-center gap-2 shadow-sm text-sm opacity-90 cursor-not-allowed">
                             <CheckCircle2 className="w-4 h-4" />
-                            {getExpirationText()}
+                            {language === 'bn' ? 'বর্তমান প্ল্যান (লাইফটাইম)' : 'Current Plan (Lifetime)'}
                           </div>
                          ) : (
                           <div className="space-y-3">
@@ -535,23 +531,18 @@ export const AccountVerificationView: React.FC<AccountVerificationViewProps> = (
                          )
                     ) : (
                       <button 
-                        onClick={handleUpgrade}
-                        disabled={upgrading || isVerified}
+                        onClick={handleUpgradeClick}
+                        disabled={upgrading || (isVerified && currentPlanId === selectedPlanId)}
                         className={cn(
                           "w-full py-3 rounded-xl font-bold text-white text-sm shadow-md flex justify-center items-center gap-2 transition-all active:scale-[0.98]",
                           `bg-gradient-to-r ${selectedPlanDetails.gradient}`,
-                          (upgrading || isVerified) && "opacity-70 pointer-events-none cursor-not-allowed"
+                          (upgrading || (isVerified && currentPlanId === selectedPlanId)) && "opacity-70 pointer-events-none cursor-not-allowed"
                         )}
                       >
                         {upgrading ? <Loader2 className="w-4 h-4 animate-spin" /> : (isVerified && currentPlanId === selectedPlanId) ? (
                           <>
                             <CheckCircle2 className="w-4 h-4" />
-                            {getExpirationText()}
-                          </>
-                        ) : isVerified ? (
-                          <>
-                            <CheckCircle2 className="w-4 h-4" />
-                            {language === 'bn' ? 'আপগ্রেড আপাতত বন্ধ (মেয়াদ আছে)' : 'Upgrade Locked (Active Plan)'}
+                            {language === 'bn' ? 'বর্তমান প্ল্যান (লাইফটাইম)' : 'Current Plan (Lifetime)'}
                           </>
                         ) : (language === 'bn' ? 'আপগ্রেড করুন' : 'Upgrade Now')}
                       </button>
@@ -564,6 +555,260 @@ export const AccountVerificationView: React.FC<AccountVerificationViewProps> = (
           </div>
         )}
       </div>
+
+      {/* Upgrade Payment Modals */}
+      <AnimatePresence>
+        {(upgradeState === 'confirm' || upgradeState === 'cooldown_popup') && (
+          <motion.div
+            key="popup-modal"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl relative"
+            >
+              {upgradeState === 'confirm' && (
+                <div className="p-6 text-center">
+                  <div className="w-16 h-16 bg-blue-100 dark:bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                     <ShieldCheck className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <h3 className="text-xl font-black text-slate-800 dark:text-white mb-2">
+                    {language === 'bn' ? 'আপগ্রেড নিশ্চিত করুন' : 'Confirm Upgrade'}
+                  </h3>
+                  <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-6">
+                    {language === 'bn' 
+                      ? `${selectedPlanDetails.nameBn}-এ আপগ্রেড করতে চান?` 
+                      : `Are you sure you want to upgrade to ${selectedPlanDetails.name}?`}
+                  </p>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => setUpgradeState('idle')}
+                      className="flex-1 py-3 px-4 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold rounded-xl active:scale-95 transition-transform"
+                    >
+                      {language === 'bn' ? 'বাতিল' : 'Cancel'}
+                    </button>
+                    <button
+                      onClick={() => setUpgradeState('method')}
+                      className="flex-1 py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl active:scale-95 transition-transform shadow-md shadow-blue-500/20"
+                    >
+                      {language === 'bn' ? 'হ্যাঁ, আপগ্রেড' : 'Yes, Upgrade'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {upgradeState === 'cooldown_popup' && (
+                <div className="p-6 text-center">
+                  <div className="w-16 h-16 bg-amber-100 dark:bg-amber-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                     <Clock className="w-8 h-8 text-amber-600 dark:text-amber-400" />
+                  </div>
+                  <h3 className="text-xl font-black text-slate-800 dark:text-white mb-2">
+                    {language === 'bn' ? 'অপেক্ষা করুন' : 'Please Wait!'}
+                  </h3>
+                  <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-6">
+                    {language === 'bn' 
+                      ? 'নতুন প্ল্যান নেওয়ার পর কমপক্ষে ৭ দিন অপেক্ষা করতে হবে। এরপর আপনি অন্য প্ল্যানে আপগ্রেড করতে পারবেন।' 
+                      : 'You must wait at least 7 days after upgrading to switch to a new plan. Please try again later.'}
+                  </p>
+                  
+                  {planExpiresAt && (
+                    <div className="bg-slate-50 dark:bg-slate-800 rounded-xl p-3 mb-6">
+                      <p className="text-xs text-slate-500 mb-1">
+                        {language === 'bn' ? 'পরবর্তী আপগ্রেড সম্ভব:' : 'Next Upgrade Available:'}
+                      </p>
+                      <p className="text-sm font-bold text-slate-800 dark:text-white">
+                        {planExpiresAt.toLocaleDateString(language === 'bn' ? 'bn-BD' : 'en-US', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    </div>
+                  )}
+
+                  <button
+                    onClick={() => setUpgradeState('idle')}
+                    className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl active:scale-95 transition-transform"
+                  >
+                    {language === 'bn' ? 'ঠিক আছে' : 'Okay'}
+                  </button>
+                </div>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+
+        {/* Full Screen Method & Transaction UI */}
+        {(upgradeState === 'method' || upgradeState === 'transaction') && (
+          <motion.div
+            key="fullscreen-modal"
+            initial={{ y: '100%' }}
+            animate={{ y: 0 }}
+            exit={{ y: '100%' }}
+            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+            className="fixed inset-0 z-[2000] flex flex-col bg-white dark:bg-slate-900 font-sans"
+          >
+            {/* Thin Header */}
+            <div className="flex items-center justify-between px-4 py-2 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 sticky top-0 z-50">
+              <button 
+                onClick={() => setUpgradeState(upgradeState === 'transaction' ? 'method' : 'idle')} 
+                className="p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-700 dark:text-slate-300"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </button>
+              <div className="flex items-center space-x-3 text-slate-400 dark:text-slate-500 scale-75 origin-right">
+                 {/* Fake status bar icons to represent the thin mobile status bar */}
+                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line></svg>
+                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg>
+                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="6" width="22" height="12" rx="2" ry="2"></rect><line x1="23" y1="13" x2="23" y2="11"></line></svg>
+              </div>
+            </div>
+
+            {/* Content Area */}
+            <div className="flex-1 relative flex flex-col pt-4 overflow-y-auto w-full pb-24">
+               {upgradeState === 'method' && (
+                 <div className="flex flex-col max-w-sm mx-auto w-full px-4">
+                    
+                    {/* Method Selection Animation Placehholder */}
+                    <div className="w-full flex justify-center mb-8 mt-4">
+                      <div className="relative w-24 h-24">
+                        <motion.div 
+                          animate={{ rotate: 360 }} 
+                          transition={{ repeat: Infinity, duration: 8, ease: "linear" }}
+                          className="absolute inset-0 rounded-full border-2 border-dashed border-blue-200 dark:border-blue-800"
+                        />
+                        <div className="absolute inset-2 bg-blue-50 dark:bg-blue-900/20 rounded-full flex items-center justify-center">
+                           <ShieldCheck className="w-10 h-10 text-blue-500" />
+                        </div>
+                      </div>
+                    </div>
+
+                    <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-1 text-center">
+                      {language === 'bn' ? 'পেমেন্ট মাধ্যম' : 'Payment Method'}
+                    </h2>
+                    <p className="text-slate-500 dark:text-slate-400 mb-8 text-center text-sm">
+                      {language === 'bn' ? 'যেকোনো একটি পদ্ধতি বেছে নিন' : 'Choose a gateway to proceed'}
+                    </p>
+
+                    <div className="grid grid-cols-2 gap-4 w-full">
+                      <button
+                        onClick={() => setPaymentMethod('bkash')}
+                        className={cn(
+                          "w-full flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all",
+                          paymentMethod === 'bkash' 
+                            ? "border-[#E2136E] bg-[#E2136E]/10" 
+                            : "border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 opacity-70 hover:opacity-100"
+                        )}
+                      >
+                        <div className="w-12 h-12 bg-[#E2136E]/10 rounded-full flex items-center justify-center mb-2">
+                          <span className="font-black text-[#E2136E] text-xl">b</span>
+                        </div>
+                        <span className="font-bold text-sm text-slate-700 dark:text-slate-200">bKash</span>
+                      </button>
+
+                      <button
+                        onClick={() => setPaymentMethod('nagad')}
+                        className={cn(
+                          "w-full flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all",
+                          paymentMethod === 'nagad' 
+                            ? "border-[#F7931E] bg-[#F7931E]/10" 
+                            : "border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 opacity-70 hover:opacity-100"
+                        )}
+                      >
+                        <div className="w-12 h-12 bg-[#F7931E]/10 rounded-full flex items-center justify-center mb-2">
+                          <span className="font-black text-[#F7931E] text-xl">ন</span>
+                        </div>
+                        <span className="font-bold text-sm text-slate-700 dark:text-slate-200">Nagad</span>
+                      </button>
+                    </div>
+                 </div>
+               )}
+
+               {upgradeState === 'transaction' && (
+                 <div className="max-w-sm mx-auto w-full px-4">
+                   {/* Transaction Animation Placeholder */}
+                   <div className="w-full flex justify-center mb-6 mt-2">
+                      <div className="relative w-20 h-20">
+                        <motion.div 
+                          animate={{ scale: [1, 1.1, 1] }} 
+                          transition={{ repeat: Infinity, duration: 2 }}
+                          className="absolute inset-0 rounded-full bg-blue-50 dark:bg-blue-900/20"
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center">
+                           <Loader2 className="w-8 h-8 text-blue-500 animate-[spin_3s_linear_infinite]" />
+                        </div>
+                      </div>
+                    </div>
+
+                   <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-6 text-center">
+                      Payment Details
+                   </h2>
+
+                   {/* Content Box */}
+                   <div className="border border-slate-100 dark:border-slate-800 rounded-xl p-4 mb-6">
+                     <div className="flex items-center justify-between mb-4">
+                       <span className="text-slate-500 font-medium">Method</span>
+                       <div className="flex items-center gap-2">
+                         <div className={cn("w-6 h-6 rounded-md flex items-center justify-center", paymentMethod === 'bkash' ? "bg-[#E2136E]/10 text-[#E2136E]" : "bg-[#F7931E]/10 text-[#F7931E]")}>
+                           <span className="font-bold text-xs">{paymentMethod === 'bkash' ? 'b' : 'ন'}</span>
+                         </div>
+                         <span className="font-bold capitalize">{paymentMethod}</span>
+                       </div>
+                     </div>
+                     <div className="flex items-center justify-between mb-4">
+                       <span className="text-slate-500 font-medium">To Number</span>
+                       <span className="font-bold">{paymentMethod === 'bkash' ? '01909902319' : '01623673650'}</span>
+                     </div>
+                     <div className="flex items-center justify-between pt-4 border-t border-slate-50 dark:border-slate-800">
+                       <span className="text-slate-500 font-medium">Amount</span>
+                       <span className="font-bold text-lg text-blue-600">
+                          {selectedPlanId === 'silver' ? '50 BDT' : selectedPlanId === 'gold' ? '100 BDT' : '200 BDT'}
+                       </span>
+                     </div>
+                   </div>
+
+                   {/* Transaction ID Input */}
+                   <div>
+                      <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                        Transaction ID
+                      </label>
+                      <input 
+                        type="text" 
+                        value={transactionId}
+                        onChange={(e) => setTransactionId(e.target.value)}
+                        placeholder="Enter TxnID here"
+                        className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-slate-900 dark:text-white"
+                      />
+                   </div>
+                 </div>
+               )}
+            </div>
+
+            {/* Bottom Sticky action area */}
+            <div className="absolute bottom-0 left-0 right-0 p-4 bg-white dark:bg-slate-900 border-t border-slate-50 dark:border-slate-800">
+               {upgradeState === 'method' && (
+                 <button
+                   onClick={() => setUpgradeState('transaction')}
+                   disabled={!paymentMethod}
+                   className="w-full max-w-sm mx-auto block py-3 px-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-semibold rounded-xl transition-all disabled:opacity-30 disabled:active:scale-100 active:scale-[0.98]"
+                 >
+                   {language === 'bn' ? 'নিশ্চিত করুন' : 'Confirm Selection'}
+                 </button>
+               )}
+               {upgradeState === 'transaction' && (
+                 <button
+                   onClick={processUpgrade}
+                   disabled={upgrading || !transactionId.trim()}
+                   className="w-full max-w-sm mx-auto flex items-center justify-center py-3 px-4 bg-[#1A56DB] text-white font-semibold rounded-xl transition-all disabled:opacity-50 disabled:active:scale-100 active:scale-[0.98]"
+                 >
+                   {upgrading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Complete Payment'}
+                 </button>
+               )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
