@@ -57,6 +57,7 @@ import { WebsiteBlocker } from './features/WebsiteBlocker';
 import { ScreenTime } from './features/ScreenTime';
 import { PrayerAutoSilentView } from './features/PrayerAutoSilentView';
 import { GuardianControlView } from './features/GuardianControlView';
+import { HiddenGallery } from './features/HiddenGallery';
 
 import { getFriendlyErrorMessage } from '@/lib/errorUtils';
 import { checkAndRegisterDevice } from '../lib/device';
@@ -221,6 +222,7 @@ export function Profile({ onNavigate }: { onNavigate?: (tab: string) => void }) 
   const [showScreenTime, setShowScreenTime] = useState(false);
   const [showAutoSilent, setShowAutoSilent] = useState(false);
   const [showGuardianControl, setShowGuardianControl] = useState(false);
+  const [showHiddenGallery, setShowHiddenGallery] = useState(false);
   const [isVerified, setIsVerified] = useState<boolean | undefined>(undefined);
   const [reportsCount, setReportsCount] = useState(0);
   const [profileIssue, setProfileIssue] = useState("");
@@ -312,7 +314,7 @@ export function Profile({ onNavigate }: { onNavigate?: (tab: string) => void }) 
       showEditProfilePage, showFavoriteDuas, showFavoriteAyats, 
       showFavoriteHadiths, showLanguageModal, showEditProfileModal, 
       showChangePasswordModal, showDeleteModal, 
-      showLocationModal, showReminderModal, showTrackersPage, showSocialMediaBlocker, showWebsiteBlocker, showScreenTime
+      showLocationModal, showReminderModal, showTrackersPage, showSocialMediaBlocker, showWebsiteBlocker, showScreenTime, showHiddenGallery
     ];
     
     const anyModalOpen = modals.some(m => m);
@@ -336,6 +338,7 @@ export function Profile({ onNavigate }: { onNavigate?: (tab: string) => void }) 
         setShowScreenTime(false);
         setShowAutoSilent(false);
         setShowGuardianControl(false);
+        setShowHiddenGallery(false);
       };
       
       window.addEventListener('popstate', handlePopState);
@@ -345,7 +348,7 @@ export function Profile({ onNavigate }: { onNavigate?: (tab: string) => void }) 
     showEditProfilePage, showFavoriteDuas, showFavoriteAyats, 
     showFavoriteHadiths, showLanguageModal, showEditProfileModal, 
     showChangePasswordModal, showDeleteModal, 
-    showLocationModal, showReminderModal, showTrackersPage, showSocialMediaBlocker, showWebsiteBlocker, showScreenTime
+    showLocationModal, showReminderModal, showTrackersPage, showSocialMediaBlocker, showWebsiteBlocker, showScreenTime, showHiddenGallery
   ]);
 
   useEffect(() => {
@@ -1304,6 +1307,11 @@ export function Profile({ onNavigate }: { onNavigate?: (tab: string) => void }) 
                     onClick={() => setShowWebsiteBlocker(true)}
                   />
                   <MenuItem 
+                    icon={<Lock className="text-emerald-500" />} 
+                    title={language === 'bn' ? 'গোপন গ্যালারি' : 'Hidden Gallery'} 
+                    onClick={() => setShowHiddenGallery(true)}
+                  />
+                  <MenuItem 
                     icon={<Clock className="text-sky-500" />} 
                     title={language === 'bn' ? 'স্কিন টাইম' : 'Screen Time'} 
                     onClick={() => setShowScreenTime(true)}
@@ -1915,6 +1923,22 @@ export function Profile({ onNavigate }: { onNavigate?: (tab: string) => void }) 
               <GuardianControlView 
                 onBack={() => setShowGuardianControl(false)}
               />
+            )}
+          </AnimatePresence>
+
+          {/* Hidden Gallery */}
+          <AnimatePresence>
+            {showHiddenGallery && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="fixed inset-0 z-[150] bg-slate-50 dark:bg-slate-950 pb-20 overflow-y-auto"
+              >
+                <HiddenGallery 
+                  onBack={() => setShowHiddenGallery(false)}
+                />
+              </motion.div>
             )}
           </AnimatePresence>
 
