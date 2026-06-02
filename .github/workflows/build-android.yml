@@ -32,11 +32,12 @@ jobs:
     - name: Setup Android SDK
       uses: android-actions/setup-android@v3
 
+    - name: Make gradlew executable
+      run: |
+        chmod +x android/gradlew || true
+
     - name: Sync Capacitor
       run: npx cap sync android
-      
-    - name: Make gradlew executable
-      run: chmod +x android/gradlew
 
     - name: Build APK
       working-directory: ./android

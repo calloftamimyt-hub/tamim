@@ -17,19 +17,12 @@ https.get('https://api.github.com/repos/calloftamimyt-hub/tamim/actions/runs', {
         res2.on('end', () => {
           const jobs = JSON.parse(data2).jobs;
           if(jobs && jobs.length > 0) {
-            console.log("Job ID:", jobs[0].id);
-            // Can't easily get raw logs without auth if it requires it, but public repo logs are available.
-            https.get(`https://api.github.com/repos/calloftamimyt-hub/tamim/actions/jobs/${jobs[0].id}/logs`, {
-              headers: { 'User-Agent': 'Node.js' },
-            }, (res3) => {
-              if(res3.statusCode === 302) {
-                https.get(res3.headers.location, {}, (res4) => {
-                  let logData = '';
-                  res4.on('data', c => logData += c);
-                  res4.on('end', () => console.log(logData.substring(Math.max(0, logData.length - 3000))));
-                });
-              }
-            });
+             const job = jobs[0];
+             console.log("Job Name:", job.name, "Status:", job.status, "Conclusion:", job.conclusion);
+             const steps = job.steps;
+             steps.forEach(step => {
+                console.log(`- Step: ${step.name} | Status: ${step.status} | Conclusion: ${step.conclusion}`);
+             });
           }
         });
       });
